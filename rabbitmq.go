@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
 	"log"
 	"strconv"
 	"sync"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/wenpiner/rabbitmq-go/conf"
 )
 
 type RabbitMQ struct {
@@ -36,6 +37,15 @@ type RabbitMQ struct {
 	isStop bool
 	// 是否已经启动
 	isStart bool
+}
+
+func (g *RabbitMQ) SendMessageClose(ctx context.Context, exchange, route string, conn bool, msg amqp.Publishing) error {
+	channel, err := g.SendMessage(ctx, exchange, route, conn, msg)
+	if err != nil {
+		return err
+	}
+	channel.Close()
+	return nil
 }
 
 func (g *RabbitMQ) SendMessage(ctx context.Context, exchange string, route string, conn bool, msg amqp.Publishing) (
