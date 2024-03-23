@@ -39,6 +39,29 @@ type RabbitMQ struct {
 	isStart bool
 }
 
+func (g *RabbitMQ) Channel() (channel *amqp.Channel,err error) {
+	if g.IsClose() {
+		if conn {
+			err = g.connect()
+			if err != nil {
+				return
+			}
+		} else {
+			err = errors.New("rabbitmq connect fail")
+			channel = nil
+			return
+		}
+	}
+	// 声明通道
+	if channel == nil || channel.IsClosed() {
+		channel, err = g.conn.Channel()
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 func (g *RabbitMQ) SendMessageClose(ctx context.Context, exchange, route string, conn bool, msg amqp.Publishing) error {
 	channel, err := g.SendMessage(ctx, exchange, route, conn, msg)
 	if err != nil {
