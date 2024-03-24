@@ -41,14 +41,8 @@ type RabbitMQ struct {
 
 func (g *RabbitMQ) Channel() (channel *amqp.Channel,err error) {
 	if g.IsClose() {
-		if conn {
-			err = g.connect()
-			if err != nil {
-				return
-			}
-		} else {
-			err = errors.New("rabbitmq connect fail")
-			channel = nil
+		err = g.connect()
+		if err != nil {
 			return
 		}
 	}
