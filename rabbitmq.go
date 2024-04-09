@@ -58,10 +58,12 @@ func (g *RabbitMQ) Channel() (channel *amqp.Channel,err error) {
 
 func (g *RabbitMQ) SendMessageClose(ctx context.Context, exchange, route string, conn bool, msg amqp.Publishing) error {
 	channel, err := g.SendMessage(ctx, exchange, route, conn, msg)
+	if channel != nil {
+		channel.Close()
+	}
 	if err != nil {
 		return err
 	}
-	channel.Close()
 	return nil
 }
 
