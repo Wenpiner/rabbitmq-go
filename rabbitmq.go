@@ -39,7 +39,7 @@ type RabbitMQ struct {
 	isStart bool
 }
 
-func (g *RabbitMQ) Channel() (channel *amqp.Channel,err error) {
+func (g *RabbitMQ) Channel() (channel *amqp.Channel, err error) {
 	if g.IsClose() {
 		err = g.connect()
 		if err != nil {
@@ -276,8 +276,8 @@ func (g *RabbitMQ) register(key string, consumer conf.ConsumerConf, receiver con
 	return nil
 }
 
-// SendDelayMsg 发送延时消息
-func (g *RabbitMQ) SendDelayMsg(key string, msg amqp.Delivery, delay int32) error {
+// SendDelayMsgByKey 发送延时消息，通过key
+func (g *RabbitMQ) SendDelayMsgByKey(key string, msg amqp.Delivery, delay int32) error {
 	if g.IsClose() {
 		err := g.connect()
 		if err != nil {
@@ -373,7 +373,7 @@ func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
 	if err != nil {
 		if retryNum < 3 {
 			d.Headers["retry_nums"] = retryNum + 1
-			e := g.SendDelayMsg(key, d, 1000*3*(retryNum+1))
+			e := g.SendDelayMsgByKey(key, d, 1000*3*(retryNum+1))
 			if e != nil {
 				log.Printf("消息进入ttl延时队列失败 err :%s \n", e)
 			}
