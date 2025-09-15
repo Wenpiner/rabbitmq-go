@@ -40,23 +40,32 @@ type RabbitMQ struct {
 }
 
 func (g *RabbitMQ) Channel() (channel *amqp.Channel, err error) {
+	return g.ChannelByName("")
+}
+
+func (g *RabbitMQ) ChannelByName(name string) (channel *amqp.Channel, err error) {
+	channelName := name
+	if channelName == "" {
+		channelName = "未指定"
+	}
+	
 	if g.IsClose() {
-		log.Println("RabbitMQ connection is closed, attempting to reconnect for channel creation")
+		log.Printf("RabbitMQ connection is closed, attempting to reconnect for channel creation (name: %s)", channelName)
 		err = g.connect()
 		if err != nil {
-			log.Printf("Failed to reconnect RabbitMQ for channel creation: %v", err)
+			log.Printf("Failed to reconnect RabbitMQ for channel creation (name: %s): %v", channelName, err)
 			return
 		}
 	}
 	// 声明通道
 	if channel == nil || channel.IsClosed() {
-		log.Println("Creating new RabbitMQ channel")
+		log.Printf("Creating new RabbitMQ channel (name: %s)", channelName)
 		channel, err = g.conn.Channel()
 		if err != nil {
-			log.Printf("Failed to create RabbitMQ channel: %v", err)
+			log.Printf("Failed to create RabbitMQ channel (name: %s): %v", channelName, err)
 			return
 		}
-		log.Printf("Successfully created RabbitMQ channel (ID: %d)", channel.ID())
+		log.Printf("Successfully created RabbitMQ channel (name: %s)", channelName)
 	}
 	return
 }
@@ -95,7 +104,7 @@ func (g *RabbitMQ) SendMessage(ctx context.Context, exchange string, route strin
 			log.Printf("Failed to create channel for sending message to exchange: %s, route: %s, error: %v", exchange, route, err)
 			return
 		}
-		log.Printf("Successfully created channel (ID: %d) for sending message to exchange: %s, route: %s", channel.ID(), exchange, route)
+		log.Printf("Successfully created channel for sending message to exchange: %s, route: %s", exchange, route)
 	}
 	err = channel.PublishWithContext(ctx, exchange, route, false, false, msg)
 	return
@@ -208,9 +217,14 @@ func (g *RabbitMQ) onChan() {
 			{
 				// 停止
 				// 关闭所有消费者
-				for _, channel := range g.channels {
-					_ = channel.Close()
+				log.Printf("Stopping RabbitMQ, closing %d channels", len(g.channels))
+				for key, channel := range g.channels {
+					if channel != nil && !channel.IsClosed() {
+						log.Printf("Closing channel for consumer (key: %s)", key)
+						_ = channel.Close()
+					}
 				}
+				log.Println("Closing RabbitMQ connection")
 				_ = g.conn.Close()
 			}
 			return
@@ -243,12 +257,12 @@ func (g *RabbitMQ) register(key string, consumer conf.ConsumerConf, receiver con
 		return errors.New("rabbitmq connect fail")
 	}
 	// 创建消费者通道
-	channel, err := g.conn.Channel()
+	channel, err := g.ChannelByName(key)
 	if err != nil {
-		log.Println("Failed to open a channel: ", err)
+		log.Printf("Failed to open a channel for consumer (key: %s): %v", key, err)
 		return err
 	} else {
-		log.Println("rabbitmq channel connect success")
+		log.Printf("RabbitMQ channel connect success for consumer (key: %s)", key)
 	}
 	g.channels[key] = channel
 	// 如果存在队列，则先进行队列声明
@@ -273,9 +287,11 @@ func (g *RabbitMQ) register(key string, consumer conf.ConsumerConf, receiver con
 		return err
 	}
 	go func(k string) {
+		log.Printf("Starting consumer goroutine for consumer (key: %s)", k)
 		for d := range msgs {
 			go g.handler(k, d)
 		}
+		log.Printf("Consumer channel closed for consumer (key: %s), will attempt reconnect", k)
 		if !g.isStop {
 			// 重连
 			go g.connect()
