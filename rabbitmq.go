@@ -41,17 +41,22 @@ type RabbitMQ struct {
 
 func (g *RabbitMQ) Channel() (channel *amqp.Channel, err error) {
 	if g.IsClose() {
+		log.Println("RabbitMQ connection is closed, attempting to reconnect for channel creation")
 		err = g.connect()
 		if err != nil {
+			log.Printf("Failed to reconnect RabbitMQ for channel creation: %v", err)
 			return
 		}
 	}
 	// 声明通道
 	if channel == nil || channel.IsClosed() {
+		log.Println("Creating new RabbitMQ channel")
 		channel, err = g.conn.Channel()
 		if err != nil {
+			log.Printf("Failed to create RabbitMQ channel: %v", err)
 			return
 		}
+		log.Printf("Successfully created RabbitMQ channel (ID: %d)", channel.ID())
 	}
 	return
 }
@@ -84,10 +89,13 @@ func (g *RabbitMQ) SendMessage(ctx context.Context, exchange string, route strin
 	}
 	// 声明通道
 	if channel == nil || channel.IsClosed() {
+		log.Printf("Creating new channel for sending message to exchange: %s, route: %s", exchange, route)
 		channel, err = g.conn.Channel()
 		if err != nil {
+			log.Printf("Failed to create channel for sending message to exchange: %s, route: %s, error: %v", exchange, route, err)
 			return
 		}
+		log.Printf("Successfully created channel (ID: %d) for sending message to exchange: %s, route: %s", channel.ID(), exchange, route)
 	}
 	err = channel.PublishWithContext(ctx, exchange, route, false, false, msg)
 	return
