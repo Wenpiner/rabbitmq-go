@@ -73,6 +73,55 @@ type ConsumerConf struct {
 	// Whether to block processing
 	NoWait    bool `json:",default=false"`
 	Exclusive bool `json:",default=false"`
+	// QoS configuration for the consumer
+	Qos QosConf `json:",optional"`
+}
+
+// QosConf contains QoS (Quality of Service) settings for consumers
+type QosConf struct {
+	// PrefetchCount specifies how many messages the server will deliver before
+	// requiring acknowledgements. A value of 0 means no limit.
+	PrefetchCount int `json:",default=0"`
+	// PrefetchSize specifies the prefetch window size in bytes. A value of 0 means no limit.
+	PrefetchSize int `json:",default=0"`
+	// Global specifies whether the QoS settings should be applied globally (true)
+	// or per-consumer (false).
+	Global bool `json:",default=false"`
+	// Enable specifies whether to enable QoS settings. If false, QoS will not be applied.
+	Enable bool `json:",default=false"`
+}
+
+// NewQos creates a new QoS configuration with the specified prefetch count.
+// The prefetchCount specifies how many messages the server will deliver before
+// requiring acknowledgements.
+func NewQos(prefetchCount int) QosConf {
+	return QosConf{
+		PrefetchCount: prefetchCount,
+		PrefetchSize:  0,
+		Global:        false,
+		Enable:        true,
+	}
+}
+
+// NewQosWithSize creates a new QoS configuration with the specified prefetch count and size.
+func NewQosWithSize(prefetchCount, prefetchSize int) QosConf {
+	return QosConf{
+		PrefetchCount: prefetchCount,
+		PrefetchSize:  prefetchSize,
+		Global:        false,
+		Enable:        true,
+	}
+}
+
+// NewGlobalQos creates a new global QoS configuration with the specified prefetch count.
+// Global QoS applies to all consumers on the channel.
+func NewGlobalQos(prefetchCount int) QosConf {
+	return QosConf{
+		PrefetchCount: prefetchCount,
+		PrefetchSize:  0,
+		Global:        true,
+		Enable:        true,
+	}
 }
 
 type RabbitConf struct {

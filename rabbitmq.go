@@ -272,6 +272,16 @@ func (g *RabbitMQ) register(key string, consumer conf.ConsumerConf, receiver con
 			log.Println("绑定队列失败:", err)
 		}
 	}
+	// 设置QoS
+	if consumer.Qos.Enable {
+		err = g.channels[key].Qos(consumer.Qos.PrefetchCount, consumer.Qos.PrefetchSize, consumer.Qos.Global)
+		if err != nil {
+			log.Printf("Failed to set QoS for consumer (key: %s): %v", key, err)
+			return err
+		}
+		log.Printf("QoS set for consumer (key: %s): prefetchCount=%d, prefetchSize=%d, global=%v",
+			key, consumer.Qos.PrefetchCount, consumer.Qos.PrefetchSize, consumer.Qos.Global)
+	}
 	// 注册消费者
 	msgs, err := g.channels[key].Consume(
 		consumer.Queue.Name,
