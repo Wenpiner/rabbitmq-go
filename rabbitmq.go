@@ -439,11 +439,15 @@ func funcName(key string, g *RabbitMQ, d amqp.Delivery, channel *amqp.Channel) {
 		err := d.Ack(false)
 		if err != nil {
 			// Check if error is due to closed channel/connection
-			var amqpErr *amqp.Error
-			if errors.As(err, &amqpErr) && (amqpErr.Code == amqp.ChannelError || amqpErr.Code == amqp.ConnectionForced) {
+			if errors.Is(err, amqp.ErrClosed) {
 				log.Printf("消息消费ack失败: channel/connection已关闭 (key: %s), 消息将在重连后重新投递", key)
 			} else {
-				log.Printf("消息消费ack失败 err :%s \n", err)
+				var amqpErr *amqp.Error
+				if errors.As(err, &amqpErr) && (amqpErr.Code == amqp.ChannelError || amqpErr.Code == amqp.ConnectionForced) {
+					log.Printf("消息消费ack失败: channel/connection已关闭 (key: %s), 消息将在重连后重新投递", key)
+				} else {
+					log.Printf("消息消费ack失败 err :%s \n", err)
+				}
 			}
 		}
 	}
