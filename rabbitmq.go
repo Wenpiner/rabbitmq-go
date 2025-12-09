@@ -48,7 +48,7 @@ func (g *RabbitMQ) ChannelByName(name string) (channel *amqp.Channel, err error)
 	if channelName == "" {
 		channelName = "未指定"
 	}
-	
+
 	if g.IsClose() {
 		log.Printf("RabbitMQ connection is closed, attempting to reconnect for channel creation (name: %s)", channelName)
 		err = g.connect()
@@ -403,6 +403,10 @@ func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
 	if !ok {
 		retryNum = int32(0)
 	}
+
+	// Store channel reference to check if it's still valid before ACK
+	channel := g.channels[key]
+
 	err := g.receivers[key].Receive(key, d)
 	if err != nil {
 		if retryNum < 3 {
@@ -414,21 +418,37 @@ func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
 		} else {
 			//消息失败 入库db
 			log.Println("消息3次处理失败,进入异常环节")
-			funcName(key, g, d)
+			funcName(key, g, d, channel)
 			g.receivers[key].Exception(key, err, d)
 		}
 	} else {
-		funcName(key, g, d)
+		funcName(key, g, d, channel)
 	}
 }
 
-func funcName(key string, g *RabbitMQ, d amqp.Delivery) {
+func funcName(key string, g *RabbitMQ, d amqp.Delivery, channel *amqp.Channel) {
 	// 判断是否需要ack
 	if !g.consumers[key].AutoAck {
+		// Check if channel is still open before attempting to ACK
+		if channel == nil || channel.IsClosed() {
+			log.Printf("消息消费ack跳过: channel已关闭 (key: %s), 消息将在重连后重新投递", key)
+			return
+		}
+
 		// 手动ack
 		err := d.Ack(false)
 		if err != nil {
-			log.Printf("消息消费ack失败 err :%s \n", err)
+			// Check if error is due to closed channel/connection
+			if errors.Is(err, amqp.ErrClosed) {
+				log.Printf("消息消费ack失败: channel/connection已关闭 (key: %s), 消息将在重连后重新投递", key)
+			} else {
+				var amqpErr *amqp.Error
+				if errors.As(err, &amqpErr) && (amqpErr.Code == amqp.ChannelError || amqpErr.Code == amqp.ConnectionForced) {
+					log.Printf("消息消费ack失败: channel/connection已关闭 (key: %s), 消息将在重连后重新投递", key)
+				} else {
+					log.Printf("消息消费ack失败 err :%s \n", err)
+				}
+			}
 		}
 	}
 }
