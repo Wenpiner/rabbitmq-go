@@ -545,7 +545,7 @@ func (g *RabbitMQ) GetChannelStatus() []ChannelInfo {
 	return info
 }
 
-// LogUnclosedChannels logs information about all unclosed channels for troubleshooting
+// LogUnclosedChannels logs information about all channels for troubleshooting
 func (g *RabbitMQ) LogUnclosedChannels() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
