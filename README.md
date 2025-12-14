@@ -72,3 +72,32 @@ func TestConn(t *testing.T) {
 }
 
 ```
+
+## Channel Management
+
+The library provides channel management functions to help troubleshoot channel issues:
+
+### LogUnclosedChannels
+
+Print status of all channels to logs for troubleshooting:
+
+```go
+// Log all channel status (open/closed) to help debug unclosed channels
+rabbit.LogUnclosedChannels()
+```
+
+### GetChannelStatus
+
+Get programmatic access to channel status:
+
+```go
+// Get status information for all registered channels
+channelStatus := rabbit.GetChannelStatus()
+for _, info := range channelStatus {
+    if !info.IsClosed {
+        log.Printf("Channel %s is still open", info.Key)
+    }
+}
+```
+
+

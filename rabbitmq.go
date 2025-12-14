@@ -522,3 +522,48 @@ func getRabbitURL(rabbitConf conf.RabbitConf) string {
 		rabbitConf.Host, rabbitConf.Port, rabbitConf.VHost,
 	)
 }
+
+// ChannelInfo represents information about a channel
+type ChannelInfo struct {
+	Key      string
+	IsClosed bool
+}
+
+// GetChannelStatus returns status information for all registered channels
+func (g *RabbitMQ) GetChannelStatus() []ChannelInfo {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	info := make([]ChannelInfo, 0, len(g.channels))
+	for key, channel := range g.channels {
+		isClosed := channel == nil || channel.IsClosed()
+		info = append(info, ChannelInfo{
+			Key:      key,
+			IsClosed: isClosed,
+		})
+	}
+	return info
+}
+
+// LogUnclosedChannels logs information about all unclosed channels for troubleshooting
+func (g *RabbitMQ) LogUnclosedChannels() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	unclosedCount := 0
+	closedCount := 0
+
+	log.Println("========== Channel Status Report ==========")
+	for key, channel := range g.channels {
+		isClosed := channel == nil || channel.IsClosed()
+		if isClosed {
+			closedCount++
+			log.Printf("Channel [%s]: CLOSED", key)
+		} else {
+			unclosedCount++
+			log.Printf("Channel [%s]: OPEN (unclosed)", key)
+		}
+	}
+	log.Printf("Summary: Total channels: %d, Open: %d, Closed: %d", len(g.channels), unclosedCount, closedCount)
+	log.Println("==========================================")
+}
