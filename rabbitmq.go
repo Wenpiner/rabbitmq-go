@@ -322,7 +322,9 @@ func (g *RabbitMQ) SendDelayMsgByKey(key string, msg amqp.Delivery, delay int32)
 	var err error
 	var channel *amqp.Channel
 	channel, err = g.conn.Channel()
-
+	if err != nil {
+		return err
+	}
 	queueName := g.consumers[key].Queue.Name + "_delay"
 	// 声明延时队列
 	_, err = channel.QueueDeclarePassive(
