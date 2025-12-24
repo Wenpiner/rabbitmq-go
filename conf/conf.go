@@ -10,6 +10,18 @@ type QueueConf struct {
 	NoWait     bool `json:",default=false"`
 }
 
+// MQ args
+type MQArgs map[string]interface{}
+
+// ToTable convert MQArgs to amqp.Table
+func (m MQArgs) ToTable() amqp.Table {
+	table := amqp.Table{}
+	for k, v := range m {
+		table[k] = v
+	}
+	return table
+}
+
 type ExchangeConf struct {
 	ExchangeName string
 	Type         string `json:",options=direct|fanout|topic|headers"` // exchange type
@@ -18,6 +30,7 @@ type ExchangeConf struct {
 	Internal     bool   `json:",default=false"`
 	NoWait       bool   `json:",default=false"`
 	Queues       []QueueConf
+	Args 		 MQArgs `json:",optional"`
 }
 
 func NewFanoutExchange(exchange string) ExchangeConf {

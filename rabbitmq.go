@@ -130,16 +130,21 @@ func (g *RabbitMQ) Bind(exchange conf.ExchangeConf, queue conf.QueueConf, routeK
 		return
 	}
 
+	exchangeArgs := exchange.Args
+	if exchangeArgs == nil {
+		exchangeArgs = conf.MQArgs{}
+	}
+
 	// 读取队列
 	_, err = passiveChannel.QueueDeclarePassive(
-		queue.Name, queue.Durable, queue.AutoDelete, queue.Exclusive, queue.NoWait, nil,
+		queue.Name, queue.Durable, queue.AutoDelete, queue.Exclusive, queue.NoWait, exchangeArgs.ToTable(),
 	)
 	if err != nil {
 		var e *amqp.Error
 		if errors.As(err, &e) && e.Code == amqp.NotFound {
 			// 队列不存在,声明队列
 			_, err = channel.QueueDeclare(
-				queue.Name, queue.Durable, queue.AutoDelete, queue.Exclusive, queue.NoWait, nil,
+				queue.Name, queue.Durable, queue.AutoDelete, queue.Exclusive, queue.NoWait, exchangeArgs.ToTable(),
 			)
 			if err != nil {
 				return
@@ -156,7 +161,7 @@ func (g *RabbitMQ) Bind(exchange conf.ExchangeConf, queue conf.QueueConf, routeK
 	// 绑定队列
 	err = passiveChannel.ExchangeDeclarePassive(
 		exchange.ExchangeName, exchange.Type, exchange.Durable, exchange.AutoDelete, exchange.Internal, exchange.NoWait,
-		nil,
+		exchangeArgs.ToTable(),
 	)
 	if err != nil {
 		var e *amqp.Error
@@ -165,7 +170,7 @@ func (g *RabbitMQ) Bind(exchange conf.ExchangeConf, queue conf.QueueConf, routeK
 			err = channel.ExchangeDeclare(
 				exchange.ExchangeName, exchange.Type, exchange.Durable, exchange.AutoDelete, exchange.Internal,
 				exchange.NoWait,
-				nil,
+				exchangeArgs.ToTable(),
 			)
 			if err != nil {
 				return err
@@ -175,7 +180,7 @@ func (g *RabbitMQ) Bind(exchange conf.ExchangeConf, queue conf.QueueConf, routeK
 
 	// 绑定路由
 	err = channel.QueueBind(
-		queue.Name, routeKey, exchange.ExchangeName, queue.NoWait, nil,
+		queue.Name, routeKey, exchange.ExchangeName, queue.NoWait, exchangeArgs.ToTable(),
 	)
 	return err
 

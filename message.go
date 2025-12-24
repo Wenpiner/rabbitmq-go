@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/wenpiner/rabbitmq-go/conf"
 	"log"
 	"strconv"
 )
 
-func (g *RabbitMQ) SendDelayMsg(exchangeName, routingKey string, msg amqp.Delivery, delay int32) error {
+// SendDelayMsgByArgs 发送延时消息
+func (g *RabbitMQ) SendDelayMsgByArgs(exchangeName, routingKey string, msg amqp.Delivery, delay int32, args *conf.MQArgs) error {
 	if g.IsClose() {
 		err := g.connect()
 		if err != nil {
@@ -23,16 +25,19 @@ func (g *RabbitMQ) SendDelayMsg(exchangeName, routingKey string, msg amqp.Delive
 	if err != nil {
 		return err
 	}
+	// 合并参数
+	if args == nil {
+		args = &conf.MQArgs{}
+	}
+	(*args)["x-dead-letter-exchange"] = exchangeName
+	(*args)["x-dead-letter-routing-key"] = routingKey
 
 	// 声明延迟队列名称
 	queueName := fmt.Sprintf("%s_queue_delay", exchangeName)
 	// 声明延时队列
 	_, err = channel.QueueDeclarePassive(
 		queueName, true, false, false, false,
-		amqp.Table{
-			"x-dead-letter-exchange":    exchangeName,
-			"x-dead-letter-routing-key": routingKey,
-		},
+		args.ToTable(),
 	)
 
 	if err != nil {
@@ -48,10 +53,7 @@ func (g *RabbitMQ) SendDelayMsg(exchangeName, routingKey string, msg amqp.Delive
 				false,
 				false,
 				false,
-				amqp.Table{
-					"x-dead-letter-exchange":    exchangeName,
-					"x-dead-letter-routing-key": routingKey,
-				},
+				args.ToTable(),
 			)
 			if err != nil {
 				return err
@@ -95,4 +97,8 @@ func (g *RabbitMQ) SendDelayMsg(exchangeName, routingKey string, msg amqp.Delive
 		return err
 	}
 	return nil
+}
+
+func (g *RabbitMQ) SendDelayMsg(exchangeName, routingKey string, msg amqp.Delivery, delay int32) error {
+	return g.SendDelayMsgByArgs(exchangeName, routingKey, msg, delay, nil)
 }
