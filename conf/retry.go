@@ -8,8 +8,8 @@ import (
 
 // RetryStrategy defines the interface for retry strategies
 type RetryStrategy interface {
-	// CalculateDelay calculates the delay time in milliseconds for the given retry attempt
-	CalculateDelay(retryNum int32) int32
+	// CalculateDelay calculates the delay duration for the given retry attempt
+	CalculateDelay(retryNum int32) time.Duration
 
 	// ShouldRetry determines whether to retry based on the retry count and error
 	ShouldRetry(retryNum int32, err error) bool
@@ -18,7 +18,7 @@ type RetryStrategy interface {
 // NoRetry is a strategy that disables retry
 type NoRetry struct{}
 
-func (n *NoRetry) CalculateDelay(retryNum int32) int32 {
+func (n *NoRetry) CalculateDelay(retryNum int32) time.Duration {
 	return 0
 }
 
@@ -29,11 +29,11 @@ func (n *NoRetry) ShouldRetry(retryNum int32, err error) bool {
 // LinearRetry implements linear backoff retry strategy
 type LinearRetry struct {
 	MaxRetries   int32
-	InitialDelay int32
+	InitialDelay time.Duration
 }
 
-func (l *LinearRetry) CalculateDelay(retryNum int32) int32 {
-	return l.InitialDelay * (retryNum + 1)
+func (l *LinearRetry) CalculateDelay(retryNum int32) time.Duration {
+	return l.InitialDelay * time.Duration(retryNum+1)
 }
 
 func (l *LinearRetry) ShouldRetry(retryNum int32, err error) bool {
@@ -46,15 +46,15 @@ func (l *LinearRetry) ShouldRetry(retryNum int32, err error) bool {
 // ExponentialRetry implements exponential backoff retry strategy
 type ExponentialRetry struct {
 	MaxRetries   int32
-	InitialDelay int32
+	InitialDelay time.Duration
 	Multiplier   float64
-	MaxDelay     int32
+	MaxDelay     time.Duration
 	Jitter       bool
 	rand         *rand.Rand
 }
 
 // NewExponentialRetry creates a new exponential retry strategy with random seed
-func NewExponentialRetry(maxRetries, initialDelay int32, multiplier float64, maxDelay int32, jitter bool) *ExponentialRetry {
+func NewExponentialRetry(maxRetries int32, initialDelay time.Duration, multiplier float64, maxDelay time.Duration, jitter bool) *ExponentialRetry {
 	return &ExponentialRetry{
 		MaxRetries:   maxRetries,
 		InitialDelay: initialDelay,
@@ -65,28 +65,28 @@ func NewExponentialRetry(maxRetries, initialDelay int32, multiplier float64, max
 	}
 }
 
-func (e *ExponentialRetry) CalculateDelay(retryNum int32) int32 {
+func (e *ExponentialRetry) CalculateDelay(retryNum int32) time.Duration {
 	// Calculate exponential delay: initialDelay * multiplier^retryNum
-	delay := float64(e.InitialDelay) * math.Pow(e.Multiplier, float64(retryNum))
+	delayFloat := float64(e.InitialDelay) * math.Pow(e.Multiplier, float64(retryNum))
 
 	// Apply max delay limit
-	if delay > float64(e.MaxDelay) {
-		delay = float64(e.MaxDelay)
+	if delayFloat > float64(e.MaxDelay) {
+		delayFloat = float64(e.MaxDelay)
 	}
 
 	// Add random jitter (±25%) to avoid thundering herd
 	if e.Jitter && e.rand != nil {
-		jitterRange := delay * 0.25
+		jitterRange := delayFloat * 0.25
 		jitterValue := jitterRange * (e.rand.Float64()*2 - 1)
-		delay += jitterValue
+		delayFloat += jitterValue
 	}
 
 	// Ensure delay is at least 0
-	if delay < 0 {
-		delay = 0
+	if delayFloat < 0 {
+		delayFloat = 0
 	}
 
-	return int32(delay)
+	return time.Duration(delayFloat)
 }
 
 func (e *ExponentialRetry) ShouldRetry(retryNum int32, err error) bool {

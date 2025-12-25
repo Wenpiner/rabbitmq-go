@@ -37,19 +37,20 @@ func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
 		if strategy.ShouldRetry(retryNum, err) {
 			// Calculate delay for next retry
 			delay := strategy.CalculateDelay(retryNum)
+			delayMs := int32(delay.Milliseconds())
 
 			// Update retry metadata in headers
 			d.Headers["retry_nums"] = retryNum + 1
-			d.Headers["retry_delay"] = delay
+			d.Headers["retry_delay"] = delayMs
 			d.Headers["last_error"] = err.Error()
 
 			// Send message to delay queue for retry
-			e := g.SendDelayMsgByKey(key, d, delay)
+			e := g.SendDelayMsgByKey(key, d, delayMs)
 			if e != nil {
-				log.Printf("消息进入ttl延时队列失败 (key: %s, retry: %d, delay: %dms) err: %s\n",
+				log.Printf("消息进入ttl延时队列失败 (key: %s, retry: %d, delay: %v) err: %s\n",
 					key, retryNum+1, delay, e)
 			} else {
-				log.Printf("消息重试已调度 (key: %s, retry: %d, delay: %dms)\n",
+				log.Printf("消息重试已调度 (key: %s, retry: %d, delay: %v)\n",
 					key, retryNum+1, delay)
 			}
 		} else {

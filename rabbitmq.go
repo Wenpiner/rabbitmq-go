@@ -451,7 +451,7 @@ func (g *RabbitMQ) getRetryStrategy(key string) conf.RetryStrategy {
 		// Fallback to legacy linear retry for backward compatibility
 		return &conf.LinearRetry{
 			MaxRetries:   3,
-			InitialDelay: 3000,
+			InitialDelay: 3 * time.Second,
 		}
 	}
 
@@ -462,7 +462,7 @@ func (g *RabbitMQ) getRetryStrategy(key string) conf.RetryStrategy {
 	if retryConf == (conf.RetryConf{}) {
 		return &conf.LinearRetry{
 			MaxRetries:   3,
-			InitialDelay: 3000,
+			InitialDelay: 3 * time.Second,
 		}
 	}
 

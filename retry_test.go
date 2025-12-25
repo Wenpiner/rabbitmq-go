@@ -3,31 +3,32 @@ package rabbitmq
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/wenpiner/rabbitmq-go/conf"
 )
 
 // TestExponentialRetryCalculation tests exponential backoff delay calculation
 func TestExponentialRetryCalculation(t *testing.T) {
-	strategy := conf.NewExponentialRetry(5, 1000, 2.0, 300000, false)
+	strategy := conf.NewExponentialRetry(5, time.Second, 2.0, 5*time.Minute, false)
 
 	tests := []struct {
 		retryNum      int32
-		expectedDelay int32
+		expectedDelay time.Duration
 	}{
-		{0, 1000},   // 1000 * 2^0 = 1000
-		{1, 2000},   // 1000 * 2^1 = 2000
-		{2, 4000},   // 1000 * 2^2 = 4000
-		{3, 8000},   // 1000 * 2^3 = 8000
-		{4, 16000},  // 1000 * 2^4 = 16000
-		{5, 32000},  // 1000 * 2^5 = 32000
-		{10, 300000}, // Should be capped at MaxDelay
+		{0, time.Second},                // 1s * 2^0 = 1s
+		{1, 2 * time.Second},            // 1s * 2^1 = 2s
+		{2, 4 * time.Second},            // 1s * 2^2 = 4s
+		{3, 8 * time.Second},            // 1s * 2^3 = 8s
+		{4, 16 * time.Second},           // 1s * 2^4 = 16s
+		{5, 32 * time.Second},           // 1s * 2^5 = 32s
+		{10, 5 * time.Minute},           // Should be capped at MaxDelay
 	}
 
 	for _, tt := range tests {
 		delay := strategy.CalculateDelay(tt.retryNum)
 		if delay != tt.expectedDelay {
-			t.Errorf("CalculateDelay(%d) = %d, expected %d", tt.retryNum, delay, tt.expectedDelay)
+			t.Errorf("CalculateDelay(%d) = %v, expected %v", tt.retryNum, delay, tt.expectedDelay)
 		}
 	}
 }
@@ -36,30 +37,30 @@ func TestExponentialRetryCalculation(t *testing.T) {
 func TestLinearRetryCalculation(t *testing.T) {
 	strategy := &conf.LinearRetry{
 		MaxRetries:   3,
-		InitialDelay: 3000,
+		InitialDelay: 3 * time.Second,
 	}
 
 	tests := []struct {
 		retryNum      int32
-		expectedDelay int32
+		expectedDelay time.Duration
 	}{
-		{0, 3000},  // 3000 * (0+1) = 3000
-		{1, 6000},  // 3000 * (1+1) = 6000
-		{2, 9000},  // 3000 * (2+1) = 9000
-		{3, 12000}, // 3000 * (3+1) = 12000
+		{0, 3 * time.Second},  // 3s * (0+1) = 3s
+		{1, 6 * time.Second},  // 3s * (1+1) = 6s
+		{2, 9 * time.Second},  // 3s * (2+1) = 9s
+		{3, 12 * time.Second}, // 3s * (3+1) = 12s
 	}
 
 	for _, tt := range tests {
 		delay := strategy.CalculateDelay(tt.retryNum)
 		if delay != tt.expectedDelay {
-			t.Errorf("CalculateDelay(%d) = %d, expected %d", tt.retryNum, delay, tt.expectedDelay)
+			t.Errorf("CalculateDelay(%d) = %v, expected %v", tt.retryNum, delay, tt.expectedDelay)
 		}
 	}
 }
 
 // TestShouldRetry tests retry decision logic
 func TestShouldRetry(t *testing.T) {
-	strategy := conf.NewExponentialRetry(3, 1000, 2.0, 300000, false)
+	strategy := conf.NewExponentialRetry(3, time.Second, 2.0, 5*time.Minute, false)
 
 	tests := []struct {
 		retryNum int32
@@ -84,14 +85,14 @@ func TestShouldRetry(t *testing.T) {
 // TestCreateRetryStrategy tests strategy creation from configuration
 func TestCreateRetryStrategy(t *testing.T) {
 	// Test exponential strategy
-	expConf := conf.NewExponentialRetryConf(5, 1000, 2.0)
+	expConf := conf.NewExponentialRetryConf(5, time.Second, 2.0)
 	expStrategy := conf.CreateRetryStrategy(expConf)
 	if _, ok := expStrategy.(*conf.ExponentialRetry); !ok {
 		t.Error("Expected ExponentialRetry strategy")
 	}
 
 	// Test linear strategy
-	linearConf := conf.NewLinearRetryConf(3, 3000)
+	linearConf := conf.NewLinearRetryConf(3, 3*time.Second)
 	linearStrategy := conf.CreateRetryStrategy(linearConf)
 	if _, ok := linearStrategy.(*conf.LinearRetry); !ok {
 		t.Error("Expected LinearRetry strategy")
@@ -142,8 +143,8 @@ func TestBackwardCompatibility(t *testing.T) {
 	if linear, ok := strategy.(*conf.LinearRetry); !ok {
 		t.Error("Expected LinearRetry for backward compatibility")
 	} else {
-		if linear.MaxRetries != 3 || linear.InitialDelay != 3000 {
-			t.Errorf("Expected legacy values (3, 3000), got (%d, %d)", linear.MaxRetries, linear.InitialDelay)
+		if linear.MaxRetries != 3 || linear.InitialDelay != 3*time.Second {
+			t.Errorf("Expected legacy values (3, 3s), got (%d, %v)", linear.MaxRetries, linear.InitialDelay)
 		}
 	}
 }
@@ -160,7 +161,7 @@ func (c *CustomReceive) GetRetryStrategy() conf.RetryStrategy {
 
 // TestCustomRetryStrategy tests custom retry strategy via interface
 func TestCustomRetryStrategy(t *testing.T) {
-	customStrategy := conf.NewExponentialRetry(10, 500, 1.5, 60000, true)
+	customStrategy := conf.NewExponentialRetry(10, 500*time.Millisecond, 1.5, time.Minute, true)
 
 	receiver := &CustomReceive{
 		strategy: customStrategy,

@@ -44,7 +44,7 @@ rabbit.Register("my-consumer", conf.ConsumerConf{
     Exchange: conf.NewFanoutExchange("my-exchange"),
     Queue:    conf.NewQueue("my-queue"),
     AutoAck:  false,
-    Retry:    conf.NewExponentialRetryConf(10, 500, 1.5),
+    Retry:    conf.NewExponentialRetryConf(10, 500*time.Millisecond, 1.5),
     // 参数: maxRetries=10, initialDelay=500ms, multiplier=1.5
 }, receiver)
 ```
@@ -56,8 +56,8 @@ rabbit.Register("my-consumer", conf.ConsumerConf{
     Exchange: conf.NewFanoutExchange("my-exchange"),
     Queue:    conf.NewQueue("my-queue"),
     AutoAck:  false,
-    Retry:    conf.NewLinearRetryConf(3, 2000),
-    // 参数: maxRetries=3, initialDelay=2000ms
+    Retry:    conf.NewLinearRetryConf(3, 2*time.Second),
+    // 参数: maxRetries=3, initialDelay=2秒
 }, receiver)
 ```
 
@@ -79,9 +79,9 @@ rabbit.Register("my-consumer", conf.ConsumerConf{
         Enable:       true,
         MaxRetries:   7,
         Strategy:     "exponential",
-        InitialDelay: 1000,
+        InitialDelay: time.Second,
         Multiplier:   2.5,
-        MaxDelay:     600000, // 10分钟
+        MaxDelay:     10 * time.Minute,
         Jitter:       true,
     },
 }, receiver)
@@ -127,7 +127,7 @@ func (r *MyReceiver) Exception(key string, err error, message amqp.Delivery) {
 
 // 实现自定义重试策略
 func (r *MyReceiver) GetRetryStrategy() conf.RetryStrategy {
-    return conf.NewExponentialRetry(15, 100, 2.0, 3600000, true)
+    return conf.NewExponentialRetry(15, 100*time.Millisecond, 2.0, time.Hour, true)
 }
 ```
 
@@ -173,9 +173,9 @@ func (r *MyReceiver) Receive(key string, message amqp.Delivery) error {
 | `Enable` | bool | true | 是否启用重试 |
 | `MaxRetries` | int32 | 5 | 最大重试次数 |
 | `Strategy` | string | "exponential" | 重试策略: "linear" 或 "exponential" |
-| `InitialDelay` | int32 | 1000 | 初始延迟(毫秒) |
+| `InitialDelay` | time.Duration | 1s | 初始延迟时间 |
 | `Multiplier` | float64 | 2.0 | 指数退避倍数(仅exponential) |
-| `MaxDelay` | int32 | 300000 | 最大延迟(毫秒)，防止无限增长 |
+| `MaxDelay` | time.Duration | 5m | 最大延迟时间，防止无限增长 |
 | `Jitter` | bool | true | 是否添加随机抖动(±25%) |
 
 ### 什么是 Jitter (抖动)?
@@ -184,8 +184,8 @@ Jitter 在计算出的延迟基础上添加 ±25% 的随机偏移，避免大量
 
 **示例:**
 ```
-计算延迟: 10000ms
-启用 Jitter: 7500ms ~ 12500ms (随机)
+计算延迟: 10秒
+启用 Jitter: 7.5秒 ~ 12.5秒 (随机)
 ```
 
 ## 向后兼容性
@@ -214,12 +214,12 @@ rabbit.Register("old-consumer", conf.ConsumerConf{
 
 2. **短暂故障使用较少重试次数**
    ```go
-   Retry: conf.NewExponentialRetryConf(3, 500, 2.0)
+   Retry: conf.NewExponentialRetryConf(3, 500*time.Millisecond, 2.0)
    ```
 
 3. **长时间运行的任务使用更多重试和更长延迟**
    ```go
-   Retry: conf.NewExponentialRetryConf(10, 5000, 1.5)
+   Retry: conf.NewExponentialRetryConf(10, 5*time.Second, 1.5)
    ```
 
 4. **生产环境建议开启 Jitter**

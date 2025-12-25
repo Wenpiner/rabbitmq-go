@@ -1,6 +1,10 @@
 package conf
 
-import amqp "github.com/rabbitmq/amqp091-go"
+import (
+	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+)
 
 type QueueConf struct {
 	Name       string
@@ -156,12 +160,12 @@ type RetryConf struct {
 	MaxRetries int32 `json:",default=5"`
 	// Strategy specifies the retry strategy: "linear" or "exponential"
 	Strategy string `json:",default=exponential,options=linear|exponential"`
-	// InitialDelay specifies the initial delay in milliseconds
-	InitialDelay int32 `json:",default=1000"`
+	// InitialDelay specifies the initial delay duration
+	InitialDelay time.Duration `json:",default=1s"`
 	// Multiplier specifies the multiplier for exponential backoff (only for exponential strategy)
 	Multiplier float64 `json:",default=2.0"`
-	// MaxDelay specifies the maximum delay in milliseconds to prevent infinite growth
-	MaxDelay int32 `json:",default=300000"`
+	// MaxDelay specifies the maximum delay duration to prevent infinite growth
+	MaxDelay time.Duration `json:",default=5m"`
 	// Jitter specifies whether to add random jitter to avoid thundering herd
 	Jitter bool `json:",default=true"`
 }
@@ -172,35 +176,35 @@ func NewRetryConf() RetryConf {
 		Enable:       true,
 		MaxRetries:   5,
 		Strategy:     "exponential",
-		InitialDelay: 1000,
+		InitialDelay: time.Second,
 		Multiplier:   2.0,
-		MaxDelay:     300000,
+		MaxDelay:     5 * time.Minute,
 		Jitter:       true,
 	}
 }
 
 // NewLinearRetryConf creates a new retry configuration with linear backoff settings
-func NewLinearRetryConf(maxRetries int32, initialDelay int32) RetryConf {
+func NewLinearRetryConf(maxRetries int32, initialDelay time.Duration) RetryConf {
 	return RetryConf{
 		Enable:       true,
 		MaxRetries:   maxRetries,
 		Strategy:     "linear",
 		InitialDelay: initialDelay,
 		Multiplier:   1.0,
-		MaxDelay:     initialDelay * maxRetries,
+		MaxDelay:     initialDelay * time.Duration(maxRetries),
 		Jitter:       false,
 	}
 }
 
 // NewExponentialRetryConf creates a new retry configuration with exponential backoff settings
-func NewExponentialRetryConf(maxRetries int32, initialDelay int32, multiplier float64) RetryConf {
+func NewExponentialRetryConf(maxRetries int32, initialDelay time.Duration, multiplier float64) RetryConf {
 	return RetryConf{
 		Enable:       true,
 		MaxRetries:   maxRetries,
 		Strategy:     "exponential",
 		InitialDelay: initialDelay,
 		Multiplier:   multiplier,
-		MaxDelay:     300000,
+		MaxDelay:     5 * time.Minute,
 		Jitter:       true,
 	}
 }

@@ -122,7 +122,7 @@ func main() {
 		RouteKey: "",
 		Name:     "custom-exp-consumer",
 		AutoAck:  false,
-		Retry:    conf.NewExponentialRetryConf(10, 500, 1.5),
+		Retry:    conf.NewExponentialRetryConf(10, 500*time.Millisecond, 1.5),
 	}, &CustomExponentialReceiver{})
 	if err != nil {
 		log.Printf("Failed to register custom-exponential consumer: %v", err)
@@ -135,14 +135,14 @@ func main() {
 		RouteKey: "",
 		Name:     "linear-retry-consumer",
 		AutoAck:  false,
-		Retry:    conf.NewLinearRetryConf(3, 2000),
+		Retry:    conf.NewLinearRetryConf(3, 2*time.Second),
 	}, &LinearRetryReceiver{})
 	if err != nil {
 		log.Printf("Failed to register linear-retry consumer: %v", err)
 	}
 
 	// Example 4: Custom retry strategy via interface
-	customStrategy := conf.NewExponentialRetry(7, 1000, 3.0, 120000, true)
+	customStrategy := conf.NewExponentialRetry(7, time.Second, 3.0, 2*time.Minute, true)
 	err = rabbit.Register("advanced-retry", conf.ConsumerConf{
 		Exchange: conf.NewFanoutExchange("example"),
 		Queue:    conf.NewQueue("advanced-queue"),

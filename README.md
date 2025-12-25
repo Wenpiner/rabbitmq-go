@@ -103,11 +103,11 @@ rabbit.Register("my-consumer", conf.ConsumerConf{
 
 ```go
 // Exponential backoff with custom parameters
-Retry: conf.NewExponentialRetryConf(10, 500, 1.5)
+Retry: conf.NewExponentialRetryConf(10, 500*time.Millisecond, 1.5)
 // 10 retries, 500ms initial delay, 1.5x multiplier
 
 // Linear backoff
-Retry: conf.NewLinearRetryConf(3, 2000)
+Retry: conf.NewLinearRetryConf(3, 2*time.Second)
 // 3 retries, 2s interval
 
 // Disable retry
@@ -129,7 +129,7 @@ func (r *MyReceiver) Exception(key string, err error, message amqp.Delivery) {
 }
 
 func (r *MyReceiver) GetRetryStrategy() conf.RetryStrategy {
-    return conf.NewExponentialRetry(15, 100, 2.0, 3600000, true)
+    return conf.NewExponentialRetry(15, 100*time.Millisecond, 2.0, time.Hour, true)
 }
 ```
 
