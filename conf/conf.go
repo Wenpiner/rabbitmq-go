@@ -88,6 +88,8 @@ type ConsumerConf struct {
 	Exclusive bool `json:",default=false"`
 	// QoS configuration for the consumer
 	Qos QosConf `json:",optional"`
+	// Retry configuration for the consumer
+	Retry RetryConf `json:",optional"`
 }
 
 // QosConf contains QoS (Quality of Service) settings for consumers
@@ -146,9 +148,73 @@ type RabbitConf struct {
 	VHost    string `json:",optional"`
 }
 
+// RetryConf contains retry configuration for message processing
+type RetryConf struct {
+	// Enable specifies whether to enable retry mechanism
+	Enable bool `json:",default=true"`
+	// MaxRetries specifies the maximum number of retry attempts
+	MaxRetries int32 `json:",default=5"`
+	// Strategy specifies the retry strategy: "linear" or "exponential"
+	Strategy string `json:",default=exponential,options=linear|exponential"`
+	// InitialDelay specifies the initial delay in milliseconds
+	InitialDelay int32 `json:",default=1000"`
+	// Multiplier specifies the multiplier for exponential backoff (only for exponential strategy)
+	Multiplier float64 `json:",default=2.0"`
+	// MaxDelay specifies the maximum delay in milliseconds to prevent infinite growth
+	MaxDelay int32 `json:",default=300000"`
+	// Jitter specifies whether to add random jitter to avoid thundering herd
+	Jitter bool `json:",default=true"`
+}
+
+// NewRetryConf creates a new retry configuration with default exponential backoff settings
+func NewRetryConf() RetryConf {
+	return RetryConf{
+		Enable:       true,
+		MaxRetries:   5,
+		Strategy:     "exponential",
+		InitialDelay: 1000,
+		Multiplier:   2.0,
+		MaxDelay:     300000,
+		Jitter:       true,
+	}
+}
+
+// NewLinearRetryConf creates a new retry configuration with linear backoff settings
+func NewLinearRetryConf(maxRetries int32, initialDelay int32) RetryConf {
+	return RetryConf{
+		Enable:       true,
+		MaxRetries:   maxRetries,
+		Strategy:     "linear",
+		InitialDelay: initialDelay,
+		Multiplier:   1.0,
+		MaxDelay:     initialDelay * maxRetries,
+		Jitter:       false,
+	}
+}
+
+// NewExponentialRetryConf creates a new retry configuration with exponential backoff settings
+func NewExponentialRetryConf(maxRetries int32, initialDelay int32, multiplier float64) RetryConf {
+	return RetryConf{
+		Enable:       true,
+		MaxRetries:   maxRetries,
+		Strategy:     "exponential",
+		InitialDelay: initialDelay,
+		Multiplier:   multiplier,
+		MaxDelay:     300000,
+		Jitter:       true,
+	}
+}
+
 type Receive interface {
 	// Receive 消息接收
 	Receive(key string, message amqp.Delivery) error
 	// Exception 异常处理
 	Exception(key string, err error, message amqp.Delivery)
+}
+
+// ReceiveWithRetry is an extended interface that allows custom retry strategy
+type ReceiveWithRetry interface {
+	Receive
+	// GetRetryStrategy returns a custom retry strategy
+	GetRetryStrategy() RetryStrategy
 }

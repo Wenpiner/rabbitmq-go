@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
 	"log"
 	"strconv"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/wenpiner/rabbitmq-go/conf"
 )
 
 // SendDelayMsgByArgs 发送延时消息

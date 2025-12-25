@@ -402,37 +402,6 @@ func (g *RabbitMQ) SendDelayMsgByKey(key string, msg amqp.Delivery, delay int32)
 	return nil
 }
 
-func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
-	if d.Headers == nil {
-		d.Headers = make(amqp.Table)
-	}
-	retryNum, ok := d.Headers["retry_nums"].(int32)
-	if !ok {
-		retryNum = int32(0)
-	}
-
-	// Store channel reference to check if it's still valid before ACK
-	channel := g.channels[key]
-
-	err := g.receivers[key].Receive(key, d)
-	if err != nil {
-		if retryNum < 3 {
-			d.Headers["retry_nums"] = retryNum + 1
-			e := g.SendDelayMsgByKey(key, d, 1000*3*(retryNum+1))
-			if e != nil {
-				log.Printf("消息进入ttl延时队列失败 err :%s \n", e)
-			}
-		} else {
-			//消息失败 入库db
-			log.Println("消息3次处理失败,进入异常环节")
-			funcName(key, g, d, channel)
-			g.receivers[key].Exception(key, err, d)
-		}
-	} else {
-		funcName(key, g, d, channel)
-	}
-}
-
 func funcName(key string, g *RabbitMQ, d amqp.Delivery, channel *amqp.Channel) {
 	// 判断是否需要ack
 	if !g.consumers[key].AutoAck {
@@ -464,6 +433,41 @@ func (g *RabbitMQ) Register(key string, consumer conf.ConsumerConf, receiver con
 	// 注册消费者
 	return g.register(key, consumer, receiver)
 
+}
+
+// getRetryStrategy returns the retry strategy for the given consumer key
+// Priority: 1. Custom strategy from ReceiveWithRetry interface
+//           2. Strategy from consumer configuration
+//           3. Legacy linear retry for backward compatibility
+func (g *RabbitMQ) getRetryStrategy(key string) conf.RetryStrategy {
+	// 1. Check if receiver implements custom retry strategy interface
+	if receiver, ok := g.receivers[key].(conf.ReceiveWithRetry); ok {
+		return receiver.GetRetryStrategy()
+	}
+
+	// 2. Get retry configuration from consumer
+	consumer, exists := g.consumers[key]
+	if !exists {
+		// Fallback to legacy linear retry for backward compatibility
+		return &conf.LinearRetry{
+			MaxRetries:   3,
+			InitialDelay: 3000,
+		}
+	}
+
+	retryConf := consumer.Retry
+
+	// 3. Check if retry configuration is zero value (not configured)
+	// Use legacy linear retry for backward compatibility
+	if retryConf == (conf.RetryConf{}) {
+		return &conf.LinearRetry{
+			MaxRetries:   3,
+			InitialDelay: 3000,
+		}
+	}
+
+	// 4. Create strategy from configuration
+	return conf.CreateRetryStrategy(retryConf)
 }
 
 func (g *RabbitMQ) Start() {
