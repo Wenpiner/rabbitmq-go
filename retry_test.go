@@ -16,13 +16,13 @@ func TestExponentialRetryCalculation(t *testing.T) {
 		retryNum      int32
 		expectedDelay time.Duration
 	}{
-		{0, time.Second},                // 1s * 2^0 = 1s
-		{1, 2 * time.Second},            // 1s * 2^1 = 2s
-		{2, 4 * time.Second},            // 1s * 2^2 = 4s
-		{3, 8 * time.Second},            // 1s * 2^3 = 8s
-		{4, 16 * time.Second},           // 1s * 2^4 = 16s
-		{5, 32 * time.Second},           // 1s * 2^5 = 32s
-		{10, 5 * time.Minute},           // Should be capped at MaxDelay
+		{0, time.Second},      // 1s * 2^0 = 1s
+		{1, 2 * time.Second},  // 1s * 2^1 = 2s
+		{2, 4 * time.Second},  // 1s * 2^2 = 4s
+		{3, 8 * time.Second},  // 1s * 2^3 = 8s
+		{4, 16 * time.Second}, // 1s * 2^4 = 16s
+		{5, 32 * time.Second}, // 1s * 2^5 = 32s
+		{10, 5 * time.Minute}, // Should be capped at MaxDelay
 	}
 
 	for _, tt := range tests {
@@ -175,4 +175,3 @@ func TestCustomRetryStrategy(t *testing.T) {
 		t.Error("Custom strategy not returned correctly")
 	}
 }
-

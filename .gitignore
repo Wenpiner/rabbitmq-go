@@ -1,1 +1,69 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# IDE specific files
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+main
+/bin/
+/dist/
+
+# Example binaries (named after their directory)
+examples/*/01-context-basic
+examples/*/02-legacy-compat
+examples/*/03-timeout
+examples/*/04-retry
+examples/*/05-phase1-demo
+examples/*/06-simple-demo
+examples/*/07-send-with-context
+examples/*/08-cascade-timeout
+examples/*/09-graceful-shutdown
+examples/*/10-start-timeout
+examples/*/11-basic-tracing
+examples/*/12-trace-propagation
+examples/*/13-publisher-basic
+examples/*/14-publisher-tracing
+examples/*/15-publisher-confirm
+examples/*/16-publisher-transaction
+examples/*/17-batch-publisher
+examples/*/18-deprecation-warnings
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Documentation build artifacts
+docs/archive/
+docs/logs/
+*.md.bak
+
+# Test coverage
+coverage.txt
+coverage.html
+*.cover

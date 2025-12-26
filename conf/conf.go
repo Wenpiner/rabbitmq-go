@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"context"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -34,7 +35,7 @@ type ExchangeConf struct {
 	Internal     bool   `json:",default=false"`
 	NoWait       bool   `json:",default=false"`
 	Queues       []QueueConf
-	Args 		 MQArgs `json:",optional"`
+	Args         MQArgs `json:",optional"`
 }
 
 func NewFanoutExchange(exchange string) ExchangeConf {
@@ -94,6 +95,16 @@ type ConsumerConf struct {
 	Qos QosConf `json:",optional"`
 	// Retry configuration for the consumer
 	Retry RetryConf `json:",optional"`
+	// HandlerTimeout is the message processing timeout duration, default is 30 seconds
+	HandlerTimeout time.Duration `json:",optional"`
+}
+
+// GetHandlerTimeout returns the handler timeout duration, returns default value if not set
+func (c *ConsumerConf) GetHandlerTimeout() time.Duration {
+	if c.HandlerTimeout <= 0 {
+		return 30 * time.Second // Default 30 seconds
+	}
+	return c.HandlerTimeout
 }
 
 // QosConf contains QoS (Quality of Service) settings for consumers
@@ -209,6 +220,16 @@ func NewExponentialRetryConf(maxRetries int32, initialDelay time.Duration, multi
 	}
 }
 
+// ReceiveWithContext 支持 context 的消息接收接口（推荐使用）
+type ReceiveWithContext interface {
+	// Receive 消息接收，支持 context 超时和取消
+	Receive(ctx context.Context, key string, message amqp.Delivery) error
+	// Exception 异常处理，支持 context 超时和取消
+	Exception(ctx context.Context, key string, err error, message amqp.Delivery)
+}
+
+// Receive 消息接收接口（已废弃，建议使用 ReceiveWithContext）
+// Deprecated: 使用 ReceiveWithContext 替代
 type Receive interface {
 	// Receive 消息接收
 	Receive(key string, message amqp.Delivery) error

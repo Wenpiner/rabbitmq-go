@@ -19,12 +19,12 @@ type DefaultRetryReceiver struct {
 func (r *DefaultRetryReceiver) Receive(key string, message amqp.Delivery) error {
 	r.processCount++
 	log.Printf("[DefaultRetry] Processing message (attempt %d): %s", r.processCount, string(message.Body))
-	
+
 	// Simulate failure for first 2 attempts
 	if r.processCount < 3 {
 		return fmt.Errorf("simulated error on attempt %d", r.processCount)
 	}
-	
+
 	log.Printf("[DefaultRetry] Message processed successfully!")
 	return nil
 }
@@ -187,4 +187,3 @@ func main() {
 	log.Println("Examples running... Press Ctrl+C to exit")
 	select {}
 }
-
