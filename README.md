@@ -415,23 +415,39 @@ rabbit.Register("my-consumer", conf.ConsumerConf{
 ## Examples
 
 See the [examples](examples/) directory for more usage examples:
-- [01-basic-context](examples/01-basic-context/) - Basic context usage
-- [02-timeout-control](examples/02-timeout-control/) - Timeout control
-- [03-graceful-shutdown](examples/03-graceful-shutdown/) - Graceful shutdown
-- [04-distributed-tracing](examples/04-distributed-tracing/) - Distributed tracing
-- [05-retry-mechanisms](examples/05-retry-mechanisms/) - Retry mechanisms
-- [06-basic-publisher](examples/06-basic-publisher/) - Basic publisher
-- [07-batch-publisher](examples/07-batch-publisher/) - Batch publishing
-- [08-publisher-confirm](examples/08-publisher-confirm/) - Publisher confirm
-- [09-publisher-transaction](examples/09-publisher-transaction/) - Publisher transaction
-- [10-batch-publisher-helper](examples/10-batch-publisher-helper/) - BatchPublisher helper
+
+### Context Support
+- [01-context-basic](examples/01-context-basic/) - Basic context usage
+- [02-legacy-compat](examples/02-legacy-compat/) - Legacy compatibility
+- [03-timeout](examples/03-timeout/) - Timeout control
+- [05-phase1-demo](examples/05-phase1-demo/) - Phase 1 features demo
+- [06-simple-demo](examples/06-simple-demo/) - Simple usage demo
+- [07-send-with-context](examples/07-send-with-context/) - Sending with context
+- [08-cascade-timeout](examples/08-cascade-timeout/) - Cascading timeout
+
+### Graceful Shutdown
+- [09-graceful-shutdown](examples/09-graceful-shutdown/) - Graceful shutdown
+- [10-start-timeout](examples/10-start-timeout/) - Start with timeout
+
+### Distributed Tracing
+- [11-basic-tracing](examples/11-basic-tracing/) - Basic tracing
+- [12-trace-propagation](examples/12-trace-propagation/) - Trace propagation
+
+### Publisher API
+- [13-publisher-basic](examples/13-publisher-basic/) - Basic publishing
+- [14-publisher-tracing](examples/14-publisher-tracing/) - Publishing with tracing
+- [15-publisher-confirm](examples/15-publisher-confirm/) - Publisher confirm mode
+- [16-publisher-transaction](examples/16-publisher-transaction/) - Publisher transaction mode
+- [17-batch-publisher](examples/17-batch-publisher/) - Batch publishing
+
+### Retry & Others
+- [04-retry](examples/04-retry/) - Retry mechanisms
 - [18-deprecation-warnings](examples/18-deprecation-warnings/) - Deprecation warnings
-- [retry_example.go](examples/retry_example.go) - Comprehensive retry examples
 
 ## Documentation
 
 ### User Guides
-- [Migration Guide](docs/MIGRATION_GUIDE.md) - Complete guide for upgrading to v4.0.0
+- [Migration Guide](docs/MIGRATION_GUIDE.md) - Complete guide for upgrading from older versions
 - [Publisher Migration Guide](docs/PUBLISHER_MIGRATION_GUIDE.md) - Guide for migrating from old to new Publisher APIs
 - [Publisher API Quick Reference](docs/PUBLISHER_API_QUICK_REFERENCE.md) - Quick reference for Publisher APIs
 - [Tracing Guide](docs/TRACING_GUIDE.md) - Distributed tracing usage guide
@@ -439,8 +455,7 @@ See the [examples](examples/) directory for more usage examples:
 - [Context Best Practices](docs/CONTEXT_BEST_PRACTICES.md) - Context usage patterns
 
 ### Release Information
-- [CHANGELOG](CHANGELOG.md) - Complete changelog
-- [Release Notes v4.0.0](RELEASE_NOTES_v4.0.0.md) - Detailed release notes
+- [CHANGELOG](CHANGELOG.md) - Complete changelog and version history
 
 ## License
 
