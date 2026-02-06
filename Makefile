@@ -13,7 +13,7 @@ help:
 	@echo ""
 	@echo "稳定性测试:"
 	@echo "  make stability-long-run       - 运行长时间稳定性测试 (24h)"
-	@echo "  make stability-high-concurrency - 运行高并发压力测试 (1h)"
+	@echo "  make stability-high-concurrenicy - 运行高并发压力测试 (1h)"
 	@echo "  make stability-network-chaos  - 运行网络故障恢复测试 (2h)"
 	@echo "  make stability-memory-leak    - 运行内存泄漏检测测试 (12h)"
 	@echo "  make stability-all            - 运行所有稳定性测试"

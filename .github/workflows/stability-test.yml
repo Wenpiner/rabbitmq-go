@@ -18,10 +18,6 @@ on:
         description: '测试时长 (例如: 1h, 30m)'
         required: false
         default: '1h'
-  
-  # 定期运行 (每周日凌晨)
-  schedule:
-    - cron: '0 0 * * 0'
 
 jobs:
   stability-test:
