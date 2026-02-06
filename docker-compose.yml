@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  # RabbitMQ 服务
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq-stability-test
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"  # Prometheus metrics
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./test/docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./test/docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stability-test
+
+  # Prometheus 监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-stability-test
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./test/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - stability-test
+    depends_on:
+      - rabbitmq
+
+  # Grafana 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-stability-test
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - ./test/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./test/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - stability-test
+    depends_on:
+      - prometheus
+
+  # 长时间稳定性测试
+  stability-long-run:
+    build:
+      context: .
+      dockerfile: test/docker/stability/Dockerfile.long-run
+    container_name: stability-long-run
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      TEST_DURATION: 24h
+      MESSAGE_RATE: 100
+      CONSUMER_COUNT: 10
+    networks:
+      - stability-test
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # 高并发压力测试
+  stability-high-concurrency:
+    build:
+      context: .
+      dockerfile: test/docker/stability/Dockerfile.high-concurrency
+    container_name: stability-high-concurrency
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      TEST_DURATION: 1h
+      MESSAGE_RATE: 10000
+      CONSUMER_COUNT: 100
+      BATCH_SIZE: 100
+    networks:
+      - stability-test
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    profiles:
+      - high-concurrency
+
+  # 网络故障恢复测试
+  stability-network-chaos:
+    build:
+      context: .
+      dockerfile: test/docker/stability/Dockerfile.network-chaos
+    container_name: stability-network-chaos
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      TEST_DURATION: 2h
+      CHAOS_INTERVAL: 5m
+      CHAOS_DURATION: 30s
+    networks:
+      - stability-test
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    profiles:
+      - chaos
+
+  # 内存泄漏检测测试
+  stability-memory-leak:
+    build:
+      context: .
+      dockerfile: test/docker/stability/Dockerfile.memory-leak
+    container_name: stability-memory-leak
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      TEST_DURATION: 12h
+      CYCLE_COUNT: 1000
+      PPROF_ENABLED: "true"
+    ports:
+      - "6060:6060"  # pprof
+    networks:
+      - stability-test
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    profiles:
+      - memory-leak
+
+networks:
+  stability-test:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+

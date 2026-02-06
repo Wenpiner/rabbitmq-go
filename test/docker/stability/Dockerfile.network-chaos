@@ -1,0 +1,24 @@
+# 网络故障恢复测试 Dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/stability-network-chaos ./test/stability/network-chaos
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata iptables
+
+WORKDIR /app
+
+COPY --from=builder /app/stability-network-chaos .
+
+EXPOSE 8080
+
+CMD ["./stability-network-chaos"]
+

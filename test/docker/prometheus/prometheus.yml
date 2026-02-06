@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'rabbitmq-stability-test'
+
+scrape_configs:
+  # RabbitMQ Prometheus 插件
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'
+
+  # 稳定性测试应用指标
+  - job_name: 'stability-tests'
+    static_configs:
+      - targets: 
+          - 'stability-long-run:8080'
+          - 'stability-high-concurrency:8080'
+          - 'stability-network-chaos:8080'
+          - 'stability-memory-leak:8080'
+        labels:
+          service: 'stability-test'
+
+  # pprof 指标
+  - job_name: 'pprof'
+    static_configs:
+      - targets: ['stability-memory-leak:6060']
+        labels:
+          service: 'pprof'
+

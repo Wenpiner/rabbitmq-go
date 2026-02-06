@@ -67,3 +67,10 @@ docs/logs/
 coverage.txt
 coverage.html
 *.cover
+
+# Stability test artifacts
+test/stability/*/stability-*
+*.pprof
+
+# Docker volumes
+.docker/

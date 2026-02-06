@@ -1,0 +1,29 @@
+# 长时间稳定性测试 Dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /build
+
+# 复制 go mod 文件
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 复制源代码
+COPY . .
+
+# 编译测试程序
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/stability-long-run ./test/stability/long-run
+
+# 运行阶段
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /app/stability-long-run .
+
+# 暴露指标端口
+EXPOSE 8080
+
+CMD ["./stability-long-run"]
+

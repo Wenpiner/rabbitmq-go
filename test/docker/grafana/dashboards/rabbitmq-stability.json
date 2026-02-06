@@ -1,0 +1,64 @@
+{
+  "dashboard": {
+    "title": "RabbitMQ Stability Test Dashboard",
+    "tags": ["rabbitmq", "stability"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Message Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(rabbitmq_queue_messages_published_total[1m])",
+            "legendFormat": "Published"
+          },
+          {
+            "expr": "rate(rabbitmq_queue_messages_delivered_total[1m])",
+            "legendFormat": "Delivered"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Queue Depth",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "rabbitmq_queue_messages",
+            "legendFormat": "Messages in Queue"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Connection Count",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rabbitmq_connections",
+            "legendFormat": "Connections"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "rabbitmq_process_resident_memory_bytes",
+            "legendFormat": "Memory"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 16,
+    "version": 0
+  }
+}
+
