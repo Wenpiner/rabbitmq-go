@@ -2,118 +2,160 @@ package rabbitmq
 
 import (
 	"context"
-	"errors"
-	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
-	"github.com/wenpiner/rabbitmq-go/logger"
-	"github.com/wenpiner/rabbitmq-go/tracing"
+	"github.com/wenpiner/rabbitmq-go/v2/logger"
 )
 
-func (g *RabbitMQ) handler(key string, d amqp.Delivery) {
-	if d.Headers == nil {
-		d.Headers = make(amqp.Table)
+// HandlerFunc 消息处理函数类型
+type HandlerFunc func(ctx context.Context, msg *Message) error
+
+// ErrorHandlerFunc 错误处理函数类型
+type ErrorHandlerFunc func(ctx context.Context, msg *Message, err error)
+
+// FuncHandler 基于函数的处理器
+type FuncHandler struct {
+	handleFunc HandlerFunc
+	errorFunc  ErrorHandlerFunc
+	logger     logger.Logger
+}
+
+// NewFuncHandler 创建函数处理器
+func NewFuncHandler(handleFunc HandlerFunc, opts ...FuncHandlerOption) *FuncHandler {
+	h := &FuncHandler{
+		handleFunc: handleFunc,
+		logger:     logger.NewDefaultLogger(logger.LevelInfo),
 	}
-
-	// 创建带超时的 context
-	timeout := g.getHandlerTimeout(key)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	// 从 headers 中提取追踪信息
-	traceInfo := tracing.ExtractFromHeaders(d.Headers)
-
-	// 如果没有 trace ID，生成新的
-	if traceInfo.TraceID == "" {
-		traceInfo.TraceID = tracing.GenerateTraceID()
+	for _, opt := range opts {
+		opt(h)
 	}
+	return h
+}
 
-	// 生成新的 span ID（当前处理的 span）
-	traceInfo.ParentSpanID = traceInfo.SpanID
-	traceInfo.SpanID = tracing.GenerateSpanID()
+// FuncHandlerOption 函数处理器选项
+type FuncHandlerOption func(*FuncHandler)
 
-	// 将追踪信息注入到 context
-	ctx = tracing.InjectToContext(ctx, traceInfo)
-
-	// 记录追踪日志
-	g.logger.Debug(tracing.FormatTraceLog(ctx, "开始处理消息 (key: "+key+")"))
-
-	// Get current retry count from headers
-	retryNum, ok := d.Headers["retry_nums"].(int32)
-	if !ok {
-		retryNum = int32(0)
-	}
-
-	// Store channel reference to check if it's still valid before ACK
-	channel := g.channels[key]
-
-	// Record first attempt time if not exists
-	if _, exists := d.Headers["first_attempt_time"]; !exists {
-		d.Headers["first_attempt_time"] = time.Now().Unix()
-	}
-
-	// Process message - 检测接口类型
-	var err error
-	if receiverWithCtx, ok := g.receivers[key].(conf.ReceiveWithContext); ok {
-		// 使用新接口
-		err = receiverWithCtx.Receive(ctx, key, d)
-	} else {
-		// 使用旧接口（兼容模式）
-		err = g.receivers[key].(conf.Receive).Receive(key, d)
-	}
-
-	if err != nil {
-		// 检查是否是 context 超时错误
-		if errors.Is(err, context.DeadlineExceeded) {
-			g.logger.Warn("消息处理超时", logger.String("key", key), logger.Duration("timeout", timeout))
-		}
-
-		// Get retry strategy for this consumer
-		strategy := g.getRetryStrategy(key)
-
-		// Check if should retry
-		if strategy.ShouldRetry(retryNum, err) {
-			// Calculate delay for next retry
-			delay := strategy.CalculateDelay(retryNum)
-			delayMs := int32(delay.Milliseconds())
-
-			// Update retry metadata in headers
-			d.Headers["retry_nums"] = retryNum + 1
-			d.Headers["retry_delay"] = delayMs
-			d.Headers["last_error"] = err.Error()
-
-			// Send message to delay queue for retry
-			// 传递 context，实现级联超时控制
-			e := g.SendDelayMsgByKey(ctx, key, d, delayMs)
-			if e != nil {
-				g.logger.Error("消息进入ttl延时队列失败",
-					logger.String("key", key),
-					logger.Int32("retry", retryNum+1),
-					logger.Duration("delay", delay),
-					logger.Error(e))
-			} else {
-				g.logger.Info("消息重试已调度",
-					logger.String("key", key),
-					logger.Int32("retry", retryNum+1),
-					logger.Duration("delay", delay))
-			}
-		} else {
-			// Max retries reached or retry disabled, invoke exception handler
-			g.logger.Warn("消息达到最大重试次数或重试已禁用，进入异常环节",
-				logger.String("key", key),
-				logger.Int32("retry", retryNum))
-			funcName(key, g, d, channel)
-
-			// 调用异常处理 - 检测接口类型
-			if receiverWithCtx, ok := g.receivers[key].(conf.ReceiveWithContext); ok {
-				receiverWithCtx.Exception(ctx, key, err, d)
-			} else {
-				g.receivers[key].(conf.Receive).Exception(key, err, d)
-			}
-		}
-	} else {
-		// Message processed successfully
-		funcName(key, g, d, channel)
+// WithErrorHandler 设置错误处理函数
+func WithErrorHandler(fn ErrorHandlerFunc) FuncHandlerOption {
+	return func(h *FuncHandler) {
+		h.errorFunc = fn
 	}
 }
+
+// WithHandlerLogger 设置日志器
+func WithHandlerLogger(l logger.Logger) FuncHandlerOption {
+	return func(h *FuncHandler) {
+		h.logger = l
+	}
+}
+
+// Handle 实现 MessageHandler 接口
+func (h *FuncHandler) Handle(ctx context.Context, msg *Message) error {
+	return h.handleFunc(ctx, msg)
+}
+
+// OnError 实现 MessageHandler 接口
+func (h *FuncHandler) OnError(ctx context.Context, msg *Message, err error) {
+	if h.errorFunc != nil {
+		h.errorFunc(ctx, msg, err)
+		return
+	}
+
+	// 默认错误处理：记录日志
+	h.logger.Error("消息处理失败",
+		logger.String("consumer", msg.ConsumerName),
+		logger.Int32("retry", msg.RetryCount),
+		logger.Error(err))
+}
+
+// MiddlewareFunc 中间件函数类型
+type MiddlewareFunc func(next HandlerFunc) HandlerFunc
+
+// ChainHandler 链式处理器，支持中间件
+type ChainHandler struct {
+	handler     MessageHandler
+	middlewares []MiddlewareFunc
+}
+
+// NewChainHandler 创建链式处理器
+func NewChainHandler(handler MessageHandler, middlewares ...MiddlewareFunc) *ChainHandler {
+	return &ChainHandler{
+		handler:     handler,
+		middlewares: middlewares,
+	}
+}
+
+// Handle 实现 MessageHandler 接口
+func (ch *ChainHandler) Handle(ctx context.Context, msg *Message) error {
+	// 构建处理链
+	final := func(ctx context.Context, msg *Message) error {
+		return ch.handler.Handle(ctx, msg)
+	}
+
+	// 从后往前包装中间件
+	for i := len(ch.middlewares) - 1; i >= 0; i-- {
+		final = ch.middlewares[i](final)
+	}
+
+	return final(ctx, msg)
+}
+
+// OnError 实现 MessageHandler 接口
+func (ch *ChainHandler) OnError(ctx context.Context, msg *Message, err error) {
+	ch.handler.OnError(ctx, msg, err)
+}
+
+// LoggingMiddleware 日志中间件
+func LoggingMiddleware(l logger.Logger) MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, msg *Message) error {
+			l.Debug("开始处理消息",
+				logger.String("consumer", msg.ConsumerName),
+				logger.String("trace_id", msg.TraceInfo.TraceID))
+
+			err := next(ctx, msg)
+
+			if err != nil {
+				l.Warn("消息处理出错",
+					logger.String("consumer", msg.ConsumerName),
+					logger.Error(err))
+			} else {
+				l.Debug("消息处理完成",
+					logger.String("consumer", msg.ConsumerName))
+			}
+
+			return err
+		}
+	}
+}
+
+// RecoveryMiddleware 恢复中间件，捕获 panic
+func RecoveryMiddleware(l logger.Logger) MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, msg *Message) (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					l.Error("消息处理 panic",
+						logger.String("consumer", msg.ConsumerName),
+						logger.Any("panic", r))
+					if e, ok := r.(error); ok {
+						err = e
+					} else {
+						err = &PanicError{Value: r}
+					}
+				}
+			}()
+
+			return next(ctx, msg)
+		}
+	}
+}
+
+// PanicError panic 错误
+type PanicError struct {
+	Value interface{}
+}
+
+func (e *PanicError) Error() string {
+	return "panic recovered"
+}
+

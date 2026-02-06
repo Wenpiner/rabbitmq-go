@@ -1,4 +1,4 @@
-package v2
+package rabbitmq
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
-	"github.com/wenpiner/rabbitmq-go/logger"
+	"github.com/wenpiner/rabbitmq-go/v2/conf"
+	"github.com/wenpiner/rabbitmq-go/v2/logger"
 )
 
 // Client RabbitMQ 客户端 v2

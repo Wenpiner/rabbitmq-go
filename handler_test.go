@@ -1,4 +1,4 @@
-package v2
+package rabbitmq
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/wenpiner/rabbitmq-go/logger"
-	"github.com/wenpiner/rabbitmq-go/tracing"
+	"github.com/wenpiner/rabbitmq-go/v2/logger"
+	"github.com/wenpiner/rabbitmq-go/v2/tracing"
 )
 
 func TestFuncHandler_Handle(t *testing.T) {

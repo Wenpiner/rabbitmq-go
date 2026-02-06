@@ -1,10 +1,10 @@
-package v2
+package rabbitmq
 
 import (
 	"time"
 
-	"github.com/wenpiner/rabbitmq-go/conf"
-	"github.com/wenpiner/rabbitmq-go/logger"
+	"github.com/wenpiner/rabbitmq-go/v2/conf"
+	"github.com/wenpiner/rabbitmq-go/v2/logger"
 )
 
 // Options 客户端配置选项
