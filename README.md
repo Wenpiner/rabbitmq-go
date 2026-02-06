@@ -2,8 +2,8 @@
 
 A production-ready RabbitMQ client for Go built on a robust state machine architecture, featuring automatic reconnection, distributed tracing, and comprehensive message handling capabilities.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/wenpiner/rabbitmq-go/v2.svg)](https://pkg.go.dev/github.com/wenpiner/rabbitmq-go/v2)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wenpiner/rabbitmq-go/v2)](https://goreportcard.com/report/github.com/wenpiner/rabbitmq-go/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/wenpiner/rabbitmq-go.svg)](https://pkg.go.dev/github.com/wenpiner/rabbitmq-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wenpiner/rabbitmq-go)](https://goreportcard.com/report/github.com/wenpiner/rabbitmq-go)
 
 > 🚀 **New to RabbitMQ-Go?** Check out the [Quick Start Guide](./QUICKSTART.md) to get up and running in 5 minutes!
 
