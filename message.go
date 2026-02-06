@@ -26,6 +26,11 @@ func (g *RabbitMQ) SendDelayMsgByArgs(ctx context.Context, exchangeName, routing
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := channel.Close(); err != nil {
+			g.logger.Error("关闭 channel 失败", logger.Error(err))
+		}
+	}()
 	// 合并参数
 	if args == nil {
 		args = &conf.MQArgs{}
@@ -45,6 +50,12 @@ func (g *RabbitMQ) SendDelayMsgByArgs(ctx context.Context, exchangeName, routing
 		var e *amqp.Error
 		if errors.As(err, &e) && e.Code == amqp.NotFound {
 			channel, err = g.conn.Channel()
+			// 3. 确保 channel 被关闭（使用 defer）
+			defer func() {
+				if err := channel.Close(); err != nil {
+					g.logger.Error("关闭 channel 失败", logger.Error(err))
+				}
+			}()
 			if err != nil {
 				return err
 			}

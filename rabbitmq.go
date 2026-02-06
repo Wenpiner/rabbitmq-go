@@ -114,12 +114,10 @@ func (g *RabbitMQ) ChannelByName(name string) (channel *amqp.Channel, err error)
 		}
 	}
 	// 声明通道
-	if channel == nil || channel.IsClosed() {
-		channel, err = g.conn.Channel()
-		if err != nil {
-			g.logger.Error("创建通道失败", logger.String("channel", channelName), logger.Error(err))
-			return
-		}
+	channel, err = g.conn.Channel()
+	if err != nil {
+		g.logger.Error("创建通道失败", logger.String("channel", channelName), logger.Error(err))
+		return
 	}
 	return
 }
