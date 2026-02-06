@@ -1,173 +1,267 @@
 # RabbitMQ-Go Examples
 
-This directory contains various usage examples for RabbitMQ-Go. Each example is in its own subdirectory and can be run independently.
+本目录包含 RabbitMQ-Go 客户端库的各种使用示例。
 
-## Prerequisites
+## 前置条件
 
-1. **Install RabbitMQ**
-   ```bash
-   # Using Docker (recommended)
-   docker run -d --name rabbitmq \
-     -p 5672:5672 \
-     -p 15672:15672 \
-     rabbitmq:3-management
-   ```
-
-2. **Access Management UI** (optional)
-   - URL: http://localhost:15672
-   - Username: guest
-   - Password: guest
-
-## Example List
-
-### Context Support
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [01-context-basic](01-context-basic/) | Basic context usage with `ReceiveWithContext` | ⭐ |
-| [02-legacy-compat](02-legacy-compat/) | Legacy compatibility demonstration | ⭐ |
-| [03-timeout](03-timeout/) | Timeout control and handling | ⭐⭐ |
-| [05-phase1-demo](05-phase1-demo/) | Phase 1 feature demonstration | ⭐⭐ |
-| [06-simple-demo](06-simple-demo/) | Simple usage demo | ⭐ |
-| [07-send-with-context](07-send-with-context/) | Sending messages with context | ⭐⭐ |
-| [08-cascade-timeout](08-cascade-timeout/) | Cascading timeout control | ⭐⭐⭐ |
-
-### Retry Mechanisms
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [04-retry](04-retry/) | Retry strategies and configuration | ⭐⭐ |
-
-### Graceful Shutdown
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [09-graceful-shutdown](09-graceful-shutdown/) | Graceful shutdown demonstration | ⭐⭐ |
-| [10-start-timeout](10-start-timeout/) | Starting with timeout control | ⭐⭐ |
-
-### Distributed Tracing
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [11-basic-tracing](11-basic-tracing/) | Basic distributed tracing | ⭐⭐ |
-| [12-trace-propagation](12-trace-propagation/) | Trace ID propagation across services | ⭐⭐⭐ |
-
-### Publisher API
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [13-publisher-basic](13-publisher-basic/) | Basic publishing methods | ⭐ |
-| [14-publisher-tracing](14-publisher-tracing/) | Publishing with tracing | ⭐⭐ |
-| [15-publisher-confirm](15-publisher-confirm/) | Publisher confirm mode | ⭐⭐⭐ |
-| [16-publisher-transaction](16-publisher-transaction/) | Publisher transaction mode | ⭐⭐⭐ |
-| [17-batch-publisher](17-batch-publisher/) | Batch publishing with BatchPublisher helper | ⭐⭐ |
-
-### Deprecation Warnings
-
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [18-deprecation-warnings](18-deprecation-warnings/) | Deprecation warning demonstration | ⭐ |
-
-## Running Examples
-
-Each example can be run independently:
+确保你已经安装并运行了 RabbitMQ：
 
 ```bash
-# Navigate to example directory and run
-cd examples/01-context-basic
-go run main.go
-
-# Or run directly
-go run examples/01-context-basic/main.go
+# 使用 Docker 启动 RabbitMQ
+docker run -d \
+  --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=guest \
+  -e RABBITMQ_DEFAULT_PASS=guest \
+  rabbitmq:3-management
 ```
 
-## Configuration
+访问管理界面：http://localhost:15672 (guest/guest)
 
-Most examples use the following default RabbitMQ configuration:
+## 示例列表
+
+### 1. 基础示例 (01-basic)
+
+演示最基本的发布和消费功能。
+
+**功能点:**
+- 创建客户端并连接
+- 注册消费者
+- 发布消息
+- 优雅关闭
+
+**运行:**
+```bash
+cd examples/01-basic
+go run main.go
+```
+
+**预期输出:**
+```
+=== RabbitMQ 基础示例 ===
+✅ 已连接到 RabbitMQ
+✅ 消费者已注册
+📤 已发送消息 #1
+📨 收到消息: Hello RabbitMQ #1
+...
+```
+
+---
+
+### 2. 批量发布 (02-batch-publish)
+
+演示如何高效地批量发送消息。
+
+**功能点:**
+- 普通批量发送（高性能）
+- 带确认的批量发送（可靠）
+- 性能对比
+
+**运行:**
+```bash
+cd examples/02-batch-publish
+go run main.go
+```
+
+**预期输出:**
+```
+📤 方式 1: 普通批量发送
+✅ 发送 100 条消息，耗时: 50ms
+📤 方式 2: 带确认的批量发送
+✅ 发送并确认 10 条消息，耗时: 200ms
+```
+
+---
+
+### 3. 分布式追踪 (03-tracing)
+
+演示如何使用内置的追踪功能进行链路追踪。
+
+**功能点:**
+- 自动生成追踪 ID
+- 追踪信息传播
+- 从消息中提取追踪信息
+- 手动创建追踪上下文
+
+**运行:**
+```bash
+cd examples/03-tracing
+go run main.go
+```
+
+**预期输出:**
+```
+📨 收到消息:
+   内容: Auto-traced message
+   TraceID: 1a2b3c4d5e6f7g8h
+   SpanID: 9i0j1k2l3m4n5o6p
+   ParentSpanID: 
+```
+
+---
+
+### 4. 重试策略 (04-retry-strategy)
+
+演示不同的重试策略：指数退避、线性退避。
+
+**功能点:**
+- 指数退避重试
+- 重试次数控制
+- 错误处理
+- 延迟队列
+
+**运行:**
+```bash
+cd examples/04-retry-strategy
+go run main.go
+```
+
+**预期输出:**
+```
+📨 处理消息 (第 1 次尝试，重试次数: 0): Test message
+❌ 错误处理器: 模拟处理失败 (重试次数: 0)
+📨 处理消息 (第 2 次尝试，重试次数: 1): Test message
+...
+✅ 消息处理成功！
+```
+
+---
+
+### 5. 并发处理 (05-concurrency)
+
+演示如何配置并发处理消息以提高吞吐量。
+
+**功能点:**
+- 配置并发数
+- QoS 设置
+- 并发统计
+- 性能测试
+
+**运行:**
+```bash
+cd examples/05-concurrency
+go run main.go
+```
+
+**预期输出:**
+```
+✅ 消费者已注册 (并发数: 10)
+📤 发送 50 条消息...
+🔄 [Worker 1] 开始处理: Message #1 (当前并发: 1)
+🔄 [Worker 2] 开始处理: Message #2 (当前并发: 2)
+...
+📊 处理完成统计:
+   总消息数: 50
+   总耗时: 3.2s
+   最大并发数: 10
+   吞吐量: 15.63 条/秒
+```
+
+---
+
+### 6. 优雅关闭 (06-graceful-shutdown)
+
+演示如何在关闭时确保所有消息都被处理完成。
+
+**功能点:**
+- 优雅关闭机制
+- 等待消息处理完成
+- 关闭超时控制
+- 消息统计
+
+**运行:**
+```bash
+cd examples/06-graceful-shutdown
+go run main.go
+# 在消息处理过程中按 Ctrl+C
+```
+
+**预期输出:**
+```
+🛑 收到关闭信号，开始优雅关闭...
+   当前正在处理: 3 条消息
+   已处理: 7/10 条消息
+✅ 优雅关闭完成
+   关闭耗时: 2.1s
+   最终处理: 10/10 条消息
+   🎉 所有消息都已处理完成！
+```
+
+---
+
+## 通用运行方式
+
+所有示例都可以通过以下方式运行：
+
+```bash
+# 进入示例目录
+cd examples/<example-name>
+
+# 运行示例
+go run main.go
+
+# 或者先编译再运行
+go build -o example
+./example
+```
+
+## 配置说明
+
+所有示例默认使用以下 RabbitMQ 配置：
 
 ```go
 conf.RabbitConf{
     Scheme:   "amqp",
+    Host:     "localhost",
+    Port:     5672,
     Username: "guest",
     Password: "guest",
-    Host:     "127.0.0.1",
-    Port:     5672,
     VHost:    "/",
 }
 ```
 
-Modify the configuration in each example's `main.go` file to match your RabbitMQ setup.
+如果你的 RabbitMQ 配置不同，请修改示例代码中的配置。
 
-## Example Categories
+## 学习路径建议
 
-### Beginner (⭐)
-Start with these examples if you're new to RabbitMQ-Go:
-- 01-context-basic
-- 02-legacy-compat
-- 06-simple-demo
-- 13-publisher-basic
+1. **初学者**: 从 `01-basic` 开始，了解基本用法
+2. **性能优化**: 学习 `02-batch-publish` 和 `05-concurrency`
+3. **可靠性**: 学习 `04-retry-strategy` 和 `06-graceful-shutdown`
+4. **可观测性**: 学习 `03-tracing`
 
-### Intermediate (⭐⭐)
-These examples demonstrate more advanced features:
-- 03-timeout
-- 04-retry
-- 05-phase1-demo
-- 07-send-with-context
-- 09-graceful-shutdown
-- 10-start-timeout
-- 11-basic-tracing
-- 14-publisher-tracing
-- 17-batch-publisher
+## 故障排查
 
-### Advanced (⭐⭐⭐)
-These examples show complex scenarios:
-- 08-cascade-timeout
-- 12-trace-propagation
-- 15-publisher-confirm
-- 16-publisher-transaction
+### 连接失败
 
-## Key Features Demonstrated
+如果示例运行时提示连接失败：
 
-### Context Support
-- Context-aware message handlers
-- Timeout control
-- Cancellation support
-- Backward compatibility with legacy API
+1. 确认 RabbitMQ 正在运行：
+   ```bash
+   docker ps | grep rabbitmq
+   ```
 
-### Graceful Shutdown
-- Clean shutdown with `StopWithContext`
-- Ensuring all messages are processed
-- Signal handling
+2. 检查端口是否开放：
+   ```bash
+   telnet localhost 5672
+   ```
 
-### Distributed Tracing
-- Automatic trace ID generation
-- Trace propagation across services
-- Context and header-based tracing
+3. 查看 RabbitMQ 日志：
+   ```bash
+   docker logs rabbitmq
+   ```
 
-### Publisher API
-- Simple publishing
-- Batch publishing (10-100x performance improvement)
-- Confirm mode for reliability
-- Transaction mode for atomicity
-- BatchPublisher helper for convenience
+### 消息未被消费
 
-### Retry Mechanisms
-- Exponential backoff
-- Linear backoff
-- Custom retry strategies
-- Per-consumer retry configuration
+如果消息发送成功但未被消费：
 
-## Documentation
+1. 检查队列绑定是否正确
+2. 查看 RabbitMQ 管理界面的队列状态
+3. 确认 routing key 匹配
 
-For more detailed information, see:
-- [Main README](../README.md)
-- [Documentation](../docs/)
-- [CHANGELOG](../CHANGELOG.md)
+## 更多资源
 
-## Support
-
-If you encounter any issues or have questions:
-1. Check the example's README.md file
-2. Review the main documentation
-3. Open an issue on GitHub
+- [主 README](../README.md) - 完整的功能文档
+- [集成测试指南](../INTEGRATION_TEST.md) - 如何运行集成测试
+- [API 文档](https://pkg.go.dev/github.com/wenpiner/rabbitmq-go/v2) - 完整的 API 参考
 

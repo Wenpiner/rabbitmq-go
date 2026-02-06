@@ -97,8 +97,20 @@ func WithAutoReconnect(auto bool) Option {
 
 // ConsumerOptions 消费者配置
 type ConsumerOptions struct {
-	// 消费者配置
+	// RabbitMQ 原生配置
 	Config conf.ConsumerConf
+
+	// 队列配置
+	Queue conf.QueueConf
+
+	// 交换机配置
+	Exchange conf.ExchangeConf
+
+	// 路由键
+	RouteKey string
+
+	// QoS 配置
+	Qos conf.QosConf
 
 	// 消息处理器
 	Handler MessageHandler
@@ -119,15 +131,71 @@ type ConsumerOption func(*ConsumerOptions)
 // DefaultConsumerOptions 返回默认消费者配置
 func DefaultConsumerOptions() *ConsumerOptions {
 	return &ConsumerOptions{
+		Config: conf.ConsumerConf{
+			AutoAck:   false,
+			NoLocal:   false,
+			NoWait:    false,
+			Exclusive: false,
+		},
 		HandlerTimeout: 30 * time.Second,
 		Concurrency:    1,
 	}
 }
 
-// WithConsumerConfig 设置消费者配置
+// WithConsumerConfig 设置消费者配置（RabbitMQ 原生配置）
+// Deprecated: 建议使用 WithAutoAck, WithExclusive 等独立选项
 func WithConsumerConfig(config conf.ConsumerConf) ConsumerOption {
 	return func(o *ConsumerOptions) {
 		o.Config = config
+	}
+}
+
+// WithQueue 设置队列配置
+func WithQueue(queue conf.QueueConf) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Queue = queue
+	}
+}
+
+// WithExchange 设置交换机配置
+func WithExchange(exchange conf.ExchangeConf) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Exchange = exchange
+	}
+}
+
+// WithRouteKey 设置路由键
+func WithRouteKey(routeKey string) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.RouteKey = routeKey
+	}
+}
+
+// WithAutoAck 设置是否自动确认
+func WithAutoAck(autoAck bool) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Config.AutoAck = autoAck
+	}
+}
+
+// WithExclusive 设置是否独占
+func WithExclusive(exclusive bool) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Config.Exclusive = exclusive
+	}
+}
+
+// WithQos 设置 QoS 配置
+func WithQos(qos conf.QosConf) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Qos = qos
+	}
+}
+
+// WithPrefetchCount 设置预取数量（快捷方法）
+func WithPrefetchCount(count int) ConsumerOption {
+	return func(o *ConsumerOptions) {
+		o.Qos = conf.NewQos(count)
 	}
 }
 

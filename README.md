@@ -1,70 +1,79 @@
 # rabbitmq-go
 
-A flexible and feature-rich RabbitMQ client for Go with built-in retry mechanisms, context support, and distributed tracing.
+A production-ready RabbitMQ client for Go built on a robust state machine architecture, featuring automatic reconnection, distributed tracing, and comprehensive message handling capabilities.
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/wenpiner/rabbitmq-go/v2.svg)](https://pkg.go.dev/github.com/wenpiner/rabbitmq-go/v2)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wenpiner/rabbitmq-go/v2)](https://goreportcard.com/report/github.com/wenpiner/rabbitmq-go/v2)
+
+> 🚀 **New to RabbitMQ-Go?** Check out the [Quick Start Guide](./QUICKSTART.md) to get up and running in 5 minutes!
 
 ## Features
 
+- ✅ **State Machine Architecture** - Robust connection lifecycle management with clear state transitions
+- ✅ **Automatic Reconnection** - Intelligent reconnection with configurable retry strategies
 - ✅ **Context Support** - Full context.Context support for timeout control and cancellation
 - ✅ **Distributed Tracing** - Built-in trace ID propagation for observability
 - ✅ **Graceful Shutdown** - Ensures no message loss during shutdown
-- ✅ **Automatic Reconnection** - Handles connection failures gracefully
 - ✅ **Flexible Retry Strategies** - Exponential backoff, linear backoff, or custom strategies
-- ✅ **QoS Support** - Fine-grained control over message prefetching
+- ✅ **Middleware Support** - Chain handlers with logging, recovery, and custom middlewares
 - ✅ **Publisher API** - Batch publishing, confirm mode, and transaction support
-- ✅ **Backward Compatible** - Seamless upgrade from older versions
+- ✅ **Concurrent Processing** - Configurable concurrency for message handlers
 - ✅ **Type Safe** - Leverages Go's type system for safer code
 - ✅ **Production Ready** - Battle-tested in production environments
 
 ## Key Features
 
-### 🎯 Context Support
-- `ReceiveWithContext` interface for context-aware message handlers
-- Context-aware message sending methods
-- Timeout control and cancellation support
-- Backward compatible with existing `Receive` interface
+### 🔄 State Machine Architecture
+- **Clear State Transitions**: Disconnected → Connecting → Connected → Reconnecting → Closed
+- **Thread-Safe**: Concurrent state access with proper locking
+- **Event-Driven**: State changes trigger automatic actions (consumer restart, reconnection, etc.)
+- **State Listeners**: Subscribe to state changes for monitoring and logging
 
-### 🛡️ Graceful Shutdown
-- `StartWithContext` and `StopWithContext` methods
-- Ensures all in-flight messages are processed
-- Configurable shutdown timeout
-- WaitGroup tracking for all goroutines
+### 🔌 Automatic Reconnection
+- **Intelligent Retry**: Configurable reconnection intervals and max attempts
+- **Consumer Recovery**: Automatically restarts all consumers after reconnection
+- **Connection Monitoring**: Detects connection failures and triggers reconnection
+- **Graceful Degradation**: Handles partial failures without crashing
+
+### 🎯 Context Support
+- **Full Context Integration**: All operations support context.Context
+- **Timeout Control**: Configurable timeouts for connections, handlers, and shutdown
+- **Cancellation**: Proper cancellation propagation throughout the system
+- **Deadline Awareness**: Respects context deadlines in all async operations
 
 ### 🔍 Distributed Tracing
-- Built-in `tracing` package
-- Automatic trace ID generation and propagation
-- Context and header-based trace information
-- Structured logging with trace IDs
-- `SendMessageWithTrace` for automatic trace propagation
+- **Built-in Tracing**: Automatic trace ID generation and propagation
+- **Message-Level Tracing**: Each message carries trace and span IDs
+- **Context Integration**: Trace information flows through context
+- **Structured Logging**: Trace IDs included in all log messages
+
+### 🎭 Middleware Support
+- **Handler Chain**: Compose multiple middlewares for message processing
+- **Built-in Middlewares**: Logging, panic recovery included
+- **Custom Middlewares**: Easy to implement custom middleware logic
+- **Execution Order**: Predictable middleware execution order
 
 ### 📤 Publisher API
+- **Basic Publishing**: Simple message publishing with optional tracing
 - **Batch Publishing**: High-performance batch message sending
 - **Confirm Mode**: Reliable publishing with broker acknowledgments
 - **Transaction Mode**: Atomic message publishing with commit/rollback
-- **BatchPublisher Helper**: Simplified batch publishing with auto-flush
-- Multiple flush modes: normal, confirm, and transaction
 
-### ⚠️ Deprecation Warnings
-- **Graceful Deprecation**: Old APIs still work but show warnings
-- **One-time Warnings**: Each deprecated API warns only once per instance
-- **Migration Guide**: Detailed guide for upgrading to new APIs
-- **Backward Compatible**: No breaking changes, migrate at your own pace
-
-### 📝 Structured Logging
-- **Custom Logger Interface**: Pluggable logging system
-- **Default Logger**: Built-in logger with level filtering
-- **Noop Logger**: Zero-overhead logging for production
-- **Structured Fields**: Type-safe logging with structured fields
-- **Third-party Integration**: Easy integration with zap, logrus, etc.
+### 🔧 Flexible Configuration
+- **Functional Options**: Clean, extensible configuration pattern
+- **Consumer Options**: Per-consumer configuration (timeout, concurrency, retry)
+- **Client Options**: Global settings (reconnection, heartbeat, logging)
+- **Retry Strategies**: Pluggable retry strategies (exponential, linear, custom)
 
 ## Install
 
 ```bash
-go get github.com/wenpiner/rabbitmq-go@latest
+go get github.com/wenpiner/rabbitmq-go/v2@latest
 ```
 
 ## Quick Start
 
-### New Context-Aware API (Recommended)
+### Basic Usage
 
 ```go
 package main
@@ -75,119 +84,167 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	rabbitmq "github.com/wenpiner/rabbitmq-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
-	"github.com/wenpiner/rabbitmq-go/tracing"
+	rabbitmq "github.com/wenpiner/rabbitmq-go/v2"
+	"github.com/wenpiner/rabbitmq-go/v2/conf"
+	"github.com/wenpiner/rabbitmq-go/v2/logger"
 )
 
-// Implement ReceiveWithContext interface
-type MyReceiver struct{}
-
-func (r *MyReceiver) ReceiveWithContext(ctx context.Context, key string, msg amqp.Delivery) error {
-	// Use tracing for observability
-	log.Println(tracing.FormatTraceLog(ctx, "Processing message"))
-
-	// Your business logic here
-	return nil
-}
-
-func (r *MyReceiver) ExceptionWithContext(ctx context.Context, key string, err error, msg amqp.Delivery) {
-	log.Println(tracing.FormatTraceLog(ctx, "Error: "+err.Error()))
-}
-
 func main() {
-	// Create RabbitMQ client
-	rabbit := rabbitmq.NewRabbitMQ(conf.RabbitConf{
-		Scheme:   "amqp",
-		Username: "guest",
-		Password: "guest",
-		Host:     "127.0.0.1",
-		Port:     5672,
-		VHost:    "/",
-	})
+	// Create client with options
+	client := rabbitmq.New(
+		rabbitmq.WithConfig(conf.RabbitConf{
+			Scheme:   "amqp",
+			Username: "guest",
+			Password: "guest",
+			Host:     "localhost",
+			Port:     5672,
+			VHost:    "/",
+		}),
+		rabbitmq.WithLogger(logger.NewDefaultLogger(logger.LevelInfo)),
+		rabbitmq.WithReconnectInterval(5*time.Second),
+		rabbitmq.WithMaxReconnectAttempts(10),
+	)
 
-	// Register consumer with timeout
-	rabbit.Register("my-key", conf.ConsumerConf{
-		Exchange:       conf.NewFanoutExchange("my-exchange"),
-		Queue:          conf.NewQueue("my-queue"),
-		RouteKey:       "",
-		Name:           "my-consumer",
-		HandlerTimeout: 30 * time.Second, // Handler timeout
-	}, &MyReceiver{})
+	// Connect to RabbitMQ
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		log.Fatal("Failed to connect:", err)
+	}
+	defer client.Close()
 
-	// Start with context (with startup timeout)
-	startCtx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	if err := rabbit.StartWithContext(startCtx); err != nil {
-		log.Fatal("Failed to start:", err)
+	// Create message handler
+	handler := rabbitmq.NewFuncHandler(
+		func(ctx context.Context, msg *rabbitmq.Message) error {
+			log.Printf("Received: %s", string(msg.Body()))
+			return nil
+		},
+		rabbitmq.WithErrorHandler(func(ctx context.Context, msg *rabbitmq.Message, err error) {
+			log.Printf("Error processing message: %v", err)
+		}),
+	)
+
+	// Register consumer
+	err := client.RegisterConsumer("my-consumer",
+		rabbitmq.WithQueue(conf.QueueConf{
+			Name:    "my-queue",
+			Durable: true,
+		}),
+		rabbitmq.WithExchange(conf.ExchangeConf{
+			ExchangeName: "my-exchange",
+			Type:         "fanout",
+			Durable:      true,
+		}),
+		rabbitmq.WithAutoAck(false),
+		rabbitmq.WithHandler(handler),
+		rabbitmq.WithConcurrency(5),
+		rabbitmq.WithHandlerTimeout(30*time.Second),
+	)
+	if err != nil {
+		log.Fatal("Failed to register consumer:", err)
 	}
 
-	// Send message with tracing
-	ctx := context.Background()
-	rabbit.SendMessageWithTrace(ctx, "my-exchange", "", true, amqp.Publishing{
+	// Publish a message
+	err = client.Publish(ctx, "my-exchange", "", amqp.Publishing{
 		ContentType: "text/plain",
-		Body:        []byte("Hello World!"),
+		Body:        []byte("Hello, RabbitMQ!"),
 	})
+	if err != nil {
+		log.Printf("Failed to publish: %v", err)
+	}
 
-	// Graceful shutdown
-	stopCtx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	rabbit.StopWithContext(stopCtx)
+	// Wait for messages...
+	select {}
 }
 ```
 
-### Legacy API (Still Supported)
+> 💡 **More Examples**: Check out the [examples](./examples) directory for more comprehensive examples including batch publishing, tracing, retry strategies, concurrency, and graceful shutdown.
+
+### Using Middleware
 
 ```go
-package main
-
-import (
-	"log"
-
-	amqp "github.com/rabbitmq/amqp091-go"
-	rabbitmq "github.com/wenpiner/rabbitmq-go"
-	"github.com/wenpiner/rabbitmq-go/conf"
+// Create handler with middleware chain
+handler := rabbitmq.NewChainHandler(
+	rabbitmq.NewFuncHandler(func(ctx context.Context, msg *rabbitmq.Message) error {
+		// Your business logic
+		log.Printf("Processing: %s", string(msg.Body()))
+		return nil
+	}),
+	rabbitmq.LoggingMiddleware(logger.NewDefaultLogger(logger.LevelInfo)),
+	rabbitmq.RecoveryMiddleware(logger.NewDefaultLogger(logger.LevelError)),
 )
 
-// Implement Receive interface
-type MyReceiver struct{}
+// Register consumer with middleware
+client.RegisterConsumer("my-consumer",
+	rabbitmq.WithQueue(conf.QueueConf{
+		Name:    "my-queue",
+		Durable: true,
+	}),
+	rabbitmq.WithExchange(conf.ExchangeConf{
+		ExchangeName: "my-exchange",
+		Type:         "fanout",
+		Durable:      true,
+	}),
+	rabbitmq.WithHandler(handler),
+)
+```
 
-func (r *MyReceiver) Receive(key string, msg amqp.Delivery) error {
-	log.Println("Processing message")
-	return nil
+### Custom Middleware
+
+```go
+// Create custom middleware
+func MetricsMiddleware(next rabbitmq.HandlerFunc) rabbitmq.HandlerFunc {
+	return func(ctx context.Context, msg *rabbitmq.Message) error {
+		start := time.Now()
+		err := next(ctx, msg)
+		duration := time.Since(start)
+
+		// Record metrics
+		log.Printf("Message processed in %v", duration)
+		return err
+	}
 }
 
-func (r *MyReceiver) Exception(key string, err error, msg amqp.Delivery) {
-	log.Println("Error:", err)
-}
-
-func main() {
-	rabbit := rabbitmq.NewRabbitMQ(conf.RabbitConf{
-		Scheme:   "amqp",
-		Username: "guest",
-		Password: "guest",
-		Host:     "127.0.0.1",
-		Port:     5672,
-		VHost:    "/",
-	})
-
-	rabbit.Register("my-key", conf.ConsumerConf{
-		Exchange:  conf.NewFanoutExchange("my-exchange"),
-		Queue:     conf.NewQueue("my-queue"),
-		RouteKey:  "",
-		Name:      "my-consumer",
-	}, &MyReceiver{})
-
-	rabbit.Start()
-	defer rabbit.Stop()
-
-	// Send message
-	rabbit.SendMessage(context.Background(), "my-exchange", "", true, amqp.Publishing{
-		ContentType: "text/plain",
-		Body:        []byte("Hello World!"),
-	})
-}
+// Use custom middleware
+handler := rabbitmq.NewChainHandler(
+	baseHandler,
+	MetricsMiddleware,
+	rabbitmq.LoggingMiddleware(logger),
+)
 ```
 
 
+
+## State Machine
+
+The client uses a state machine to manage connection lifecycle:
+
+```
+Disconnected ──Connect──> Connecting ──Success──> Connected
+     ↑                         │                      │
+     │                      Fail                  Disconnect
+     │                         │                      │
+     └─────────────────────────┴──> Reconnecting <────┘
+                                           │
+                                        Success
+                                           │
+                                           ↓
+                                      Connected
+
+Any State ──Close──> Closed (Terminal)
+```
+
+### State Monitoring
+
+```go
+// Check current state
+state := client.State()
+log.Printf("Current state: %s", state)
+
+// Check if connected
+if client.IsConnected() {
+    log.Println("Client is connected")
+}
+```
 
 ## Publisher API
 
@@ -195,15 +252,15 @@ func main() {
 
 ```go
 // Simple publish
-err := rabbit.Publish(ctx, "my-exchange", "routing.key", amqp.Publishing{
+err := client.Publish(ctx, "my-exchange", "routing.key", amqp.Publishing{
     ContentType: "text/plain",
     Body:        []byte("Hello World"),
 })
 
-// Publish with mandatory flag
-err := rabbit.PublishMandatory(ctx, "my-exchange", "routing.key", amqp.Publishing{
+// Publish with tracing
+err := client.PublishWithTrace(ctx, "my-exchange", "routing.key", amqp.Publishing{
     ContentType: "text/plain",
-    Body:        []byte("Important message"),
+    Body:        []byte("Traced message"),
 })
 ```
 
@@ -218,51 +275,19 @@ messages := []amqp.Publishing{
 }
 
 // Batch publish (high performance)
-err := rabbit.PublishBatch(ctx, "my-exchange", "routing.key", messages)
+err := client.PublishBatch(ctx, "my-exchange", "routing.key", messages)
 
 // Batch publish with confirm (reliable)
-err := rabbit.PublishBatchWithConfirm(ctx, "my-exchange", "routing.key", messages)
-
-// Batch publish with transaction (atomic)
-err := rabbit.PublishBatchTx(ctx, "my-exchange", "routing.key", messages)
-```
-
-### BatchPublisher Helper
-
-```go
-// Create batch publisher with auto-flush
-publisher := rabbit.NewBatchPublisher("my-exchange", "routing.key").
-    SetBatchSize(100).
-    SetAutoFlush(true)
-
-defer publisher.Close(ctx)
-
-// Add messages (auto-flushes every 100 messages)
-for i := 0; i < 1000; i++ {
-    msg := amqp.Publishing{
-        ContentType: "text/plain",
-        Body:        []byte(fmt.Sprintf("Message %d", i)),
-    }
-    publisher.Add(ctx, msg)
-}
+err := client.PublishBatchWithConfirm(ctx, "my-exchange", "routing.key", messages)
 ```
 
 ### Publisher Confirm Mode
 
 ```go
 // Use confirm mode for reliable publishing
-err := rabbit.WithPublisherConfirm(ctx, func(ctx context.Context, ch *amqp.Channel) error {
-    // Send multiple messages
-    for i := 0; i < 10; i++ {
-        msg := amqp.Publishing{
-            ContentType: "text/plain",
-            Body:        []byte(fmt.Sprintf("Message %d", i)),
-        }
-        if err := ch.PublishWithContext(ctx, "my-exchange", "routing.key", false, false, msg); err != nil {
-            return err
-        }
-    }
-    return nil // Auto-wait for confirms
+err := client.PublishWithConfirm(ctx, "my-exchange", "routing.key", amqp.Publishing{
+    ContentType: "text/plain",
+    Body:        []byte("Important message"),
 })
 ```
 
@@ -270,7 +295,7 @@ err := rabbit.WithPublisherConfirm(ctx, func(ctx context.Context, ch *amqp.Chann
 
 ```go
 // Use transaction for atomic publishing
-err := rabbit.WithPublisherTx(ctx, func(ctx context.Context, ch *amqp.Channel) error {
+err := client.WithPublisherTx(ctx, func(ctx context.Context, ch *amqp.Channel) error {
     // Send multiple messages atomically
     for i := 0; i < 3; i++ {
         msg := amqp.Publishing{
@@ -287,64 +312,91 @@ err := rabbit.WithPublisherTx(ctx, func(ctx context.Context, ch *amqp.Channel) e
 
 ### Publisher API Comparison
 
-| Feature | Publish | PublishBatch | PublishBatchWithConfirm | PublishBatchTx |
-|---------|---------|--------------|------------------------|----------------|
-| Performance | High | Very High | Medium | Low |
-| Reliability | Low | Low | High | High |
-| Atomicity | No | No | No | Yes |
-| Use Case | Simple | High throughput | Reliable delivery | Atomic operations |
+| Method | Performance | Reliability | Atomicity | Use Case |
+|--------|-------------|-------------|-----------|----------|
+| `Publish` | High | Low | No | Simple messages |
+| `PublishBatch` | Very High | Low | No | High throughput |
+| `PublishWithConfirm` | Medium | High | No | Reliable delivery |
+| `PublishBatchWithConfirm` | Medium | High | No | Reliable batch |
+| `WithPublisherTx` | Low | High | Yes | Atomic operations |
 
-📖 **For detailed publisher documentation, see:**
-- [examples/16-publisher-transaction/](./examples/16-publisher-transaction/) - Transaction mode examples
-- [examples/17-batch-publisher/](./examples/17-batch-publisher/) - BatchPublisher examples
+## Retry Strategies
 
-## Retry Mechanism
-
-### Default Exponential Backoff
+### Exponential Backoff
 
 ```go
-rabbit.Register("my-consumer", conf.ConsumerConf{
-    Exchange: conf.NewFanoutExchange("my-exchange"),
-    Queue:    conf.NewQueue("my-queue"),
-    AutoAck:  false,
-    Retry:    conf.NewRetryConf(), // Default: 5 retries, exponential backoff
-}, receiver)
+// Register consumer with exponential retry
+client.RegisterConsumer("my-consumer",
+    rabbitmq.WithQueue(conf.QueueConf{
+        Name:    "my-queue",
+        Durable: true,
+    }),
+    rabbitmq.WithExchange(conf.ExchangeConf{
+        ExchangeName: "my-exchange",
+        Type:         "fanout",
+        Durable:      true,
+    }),
+    rabbitmq.WithHandler(handler),
+    rabbitmq.WithRetryStrategy(&conf.ExponentialRetry{
+        MaxRetries:   5,
+        InitialDelay: time.Second,
+        Multiplier:   2.0,
+        MaxDelay:     time.Minute,
+        Jitter:       true,
+    }),
+)
 ```
 
-**Retry timeline:** ~1s → ~2s → ~4s → ~8s → ~16s
+**Retry timeline:** ~1s → ~2s → ~4s → ~8s → ~16s (with jitter)
 
-### Custom Retry Configuration
+### Linear Backoff
 
 ```go
-// Exponential backoff with custom parameters
-Retry: conf.NewExponentialRetryConf(10, 500*time.Millisecond, 1.5)
-// 10 retries, 500ms initial delay, 1.5x multiplier
+// Linear retry with fixed interval
+rabbitmq.WithRetryStrategy(&conf.LinearRetry{
+    MaxRetries:   3,
+    InitialDelay: 2 * time.Second,
+})
+```
 
-// Linear backoff
-Retry: conf.NewLinearRetryConf(3, 2*time.Second)
-// 3 retries, 2s interval
+**Retry timeline:** 2s → 2s → 2s
 
+### No Retry
+
+```go
 // Disable retry
-Retry: conf.RetryConf{Enable: false}
+rabbitmq.WithRetryStrategy(&conf.NoRetry{})
 ```
 
-### Advanced: Custom Retry Strategy
+## Reconnection
+
+### Automatic Reconnection
 
 ```go
-type MyReceiver struct {}
+// Configure reconnection behavior
+client := rabbitmq.New(
+    rabbitmq.WithConfig(conf.RabbitConf{...}),
+    rabbitmq.WithAutoReconnect(true),
+    rabbitmq.WithReconnectInterval(5*time.Second),
+    rabbitmq.WithMaxReconnectAttempts(10), // 0 = infinite
+)
+```
 
-func (r *MyReceiver) Receive(key string, message amqp.Delivery) error {
-    // Your business logic
-    return nil
-}
+When connection is lost:
+1. Client transitions to `Reconnecting` state
+2. Waits for `ReconnectInterval`
+3. Attempts to reconnect
+4. On success: transitions to `Connected` and restarts all consumers
+5. On failure: retries up to `MaxReconnectAttempts`
 
-func (r *MyReceiver) Exception(key string, err error, message amqp.Delivery) {
-    // Handle max retries exceeded
-}
+### Connection Timeout
 
-func (r *MyReceiver) GetRetryStrategy() conf.RetryStrategy {
-    return conf.NewExponentialRetry(15, 100*time.Millisecond, 2.0, time.Hour, true)
-}
+```go
+// Set connection timeout
+client := rabbitmq.New(
+    rabbitmq.WithConfig(conf.RabbitConf{...}),
+    rabbitmq.WithConnectTimeout(30*time.Second),
+)
 ```
 
 ## Logging
@@ -352,42 +404,22 @@ func (r *MyReceiver) GetRetryStrategy() conf.RetryStrategy {
 ### Using Default Logger
 
 ```go
-import "github.com/wenpiner/rabbitmq-go/logger"
+import "github.com/wenpiner/rabbitmq-go/v2/logger"
 
-// Create RabbitMQ with custom logger
-rabbit := rabbitmq.NewRabbitMQ(conf.RabbitConf{...})
-
-// Set log level (Debug, Info, Warn, Error)
-rabbit.SetLogger(logger.NewDefaultLogger(logger.LevelInfo))
+// Create client with logger
+client := rabbitmq.New(
+    rabbitmq.WithConfig(conf.RabbitConf{...}),
+    rabbitmq.WithLogger(logger.NewDefaultLogger(logger.LevelInfo)),
+)
 ```
 
 ### Disable Logging
 
 ```go
 // Use NoopLogger for zero-overhead logging
-rabbit.SetLogger(logger.NewNoopLogger())
-```
-
-### Custom Logger Integration
-
-```go
-// Implement the Logger interface
-type MyLogger struct {
-    zapLogger *zap.Logger
-}
-
-func (l *MyLogger) Debug(msg string, fields ...logger.Field) {
-    l.zapLogger.Debug(msg, convertFields(fields)...)
-}
-
-func (l *MyLogger) Info(msg string, fields ...logger.Field) {
-    l.zapLogger.Info(msg, convertFields(fields)...)
-}
-
-// ... implement Warn and Error
-
-// Use your custom logger
-rabbit.SetLogger(&MyLogger{zapLogger: zap.NewProduction()})
+client := rabbitmq.New(
+    rabbitmq.WithLogger(logger.NewNoopLogger()),
+)
 ```
 
 ### Structured Logging
@@ -401,58 +433,132 @@ logger.Info("Message processed",
     logger.Error(err))
 ```
 
-## QoS Configuration
+## Concurrency
+
+### Concurrent Message Processing
 
 ```go
-rabbit.Register("my-consumer", conf.ConsumerConf{
-    Exchange: conf.NewFanoutExchange("my-exchange"),
-    Queue:    conf.NewQueue("my-queue"),
-    Qos:      conf.NewQos(10), // Prefetch 10 messages
-    AutoAck:  false,
-}, receiver)
+// Process messages concurrently
+client.RegisterConsumer("my-consumer",
+    rabbitmq.WithQueue(conf.QueueConf{
+        Name:    "my-queue",
+        Durable: true,
+    }),
+    rabbitmq.WithExchange(conf.ExchangeConf{
+        ExchangeName: "my-exchange",
+        Type:         "fanout",
+        Durable:      true,
+    }),
+    rabbitmq.WithHandler(handler),
+    rabbitmq.WithConcurrency(10), // Process 10 messages concurrently
+)
+```
+
+### Handler Timeout
+
+```go
+// Set timeout for message handlers
+client.RegisterConsumer("my-consumer",
+    rabbitmq.WithQueue(conf.QueueConf{Name: "my-queue", Durable: true}),
+    rabbitmq.WithExchange(conf.ExchangeConf{ExchangeName: "my-exchange", Type: "fanout", Durable: true}),
+    rabbitmq.WithHandler(handler),
+    rabbitmq.WithHandlerTimeout(30*time.Second), // Handler must complete within 30s
+)
+```
+
+## Architecture
+
+### Component Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        Client                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ State Machine│  │  Connection  │  │   Publisher  │  │
+│  │              │  │   Manager    │  │              │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │           Consumer Registry                      │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │  │
+│  │  │Consumer 1│  │Consumer 2│  │Consumer N│  ...  │  │
+│  │  └──────────┘  └──────────┘  └──────────┘       │  │
+│  └──────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+
+Each Consumer:
+┌─────────────────────────────────────────┐
+│           Consumer                      │
+│  ┌──────────────┐  ┌──────────────┐    │
+│  │    State     │  │   Channel    │    │
+│  └──────────────┘  └──────────────┘    │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │      Handler Chain               │  │
+│  │  Middleware 1 → Middleware 2 →   │  │
+│  │  ... → Base Handler              │  │
+│  └──────────────────────────────────┘  │
+└─────────────────────────────────────────┘
 ```
 
 ## Examples
 
-See the [examples](examples/) directory for more usage examples:
+The library includes comprehensive examples demonstrating various features:
 
-### Context Support
-- [01-context-basic](examples/01-context-basic/) - Basic context usage
-- [02-legacy-compat](examples/02-legacy-compat/) - Legacy compatibility
-- [03-timeout](examples/03-timeout/) - Timeout control
-- [05-phase1-demo](examples/05-phase1-demo/) - Phase 1 features demo
-- [06-simple-demo](examples/06-simple-demo/) - Simple usage demo
-- [07-send-with-context](examples/07-send-with-context/) - Sending with context
-- [08-cascade-timeout](examples/08-cascade-timeout/) - Cascading timeout
+| Example | Description | Key Features |
+|---------|-------------|--------------|
+| [01-basic](./examples/01-basic) | Basic publish and consume | Client setup, consumer registration, message publishing |
+| [02-batch-publish](./examples/02-batch-publish) | Batch message publishing | High-performance batch sending, confirm mode |
+| [03-tracing](./examples/03-tracing) | Distributed tracing | Trace ID generation, propagation, extraction |
+| [04-retry-strategy](./examples/04-retry-strategy) | Retry strategies | Exponential backoff, error handling |
+| [05-concurrency](./examples/05-concurrency) | Concurrent processing | Concurrency control, QoS, performance metrics |
+| [06-graceful-shutdown](./examples/06-graceful-shutdown) | Graceful shutdown | Clean shutdown, message completion guarantee |
 
-### Graceful Shutdown
-- [09-graceful-shutdown](examples/09-graceful-shutdown/) - Graceful shutdown
-- [10-start-timeout](examples/10-start-timeout/) - Start with timeout
+**Running Examples:**
 
-### Distributed Tracing
-- [11-basic-tracing](examples/11-basic-tracing/) - Basic tracing
-- [12-trace-propagation](examples/12-trace-propagation/) - Trace propagation
+```bash
+# Run a specific example
+cd examples/01-basic
+go run main.go
 
-### Publisher API
-- [13-publisher-basic](examples/13-publisher-basic/) - Basic publishing
-- [14-publisher-tracing](examples/14-publisher-tracing/) - Publishing with tracing
-- [15-publisher-confirm](examples/15-publisher-confirm/) - Publisher confirm mode
-- [16-publisher-transaction](examples/16-publisher-transaction/) - Publisher transaction mode
-- [17-batch-publisher](examples/17-batch-publisher/) - Batch publishing
+# Or build and run
+go build -o example
+./example
+```
 
-### Retry & Others
-- [04-retry](examples/04-retry/) - Retry mechanisms
-- [18-deprecation-warnings](examples/18-deprecation-warnings/) - Deprecation warnings
+See [examples/README.md](./examples/README.md) for detailed documentation.
+
+## Testing
+
+The library includes comprehensive unit and integration tests:
+
+```bash
+# Run all unit tests
+go test -v ./...
+
+# Run tests with coverage
+go test -v -cover ./...
+
+# Run specific test
+go test -v -run TestStateMachine
+
+# Run integration tests (requires RabbitMQ)
+go test -v -run TestIntegration
+```
+
+**Test Coverage:**
+- State machine: 14 tests
+- Message handlers: 14 tests
+- Configuration options: 18 tests
+- Integration tests: 8 tests
+- **Total: 54+ tests**
+
+See [INTEGRATION_TEST.md](./INTEGRATION_TEST.md) for integration testing guide.
 
 ## Documentation
 
-### User Guides
-- [Migration Guide](docs/MIGRATION_GUIDE.md) - Complete guide for upgrading from older versions
-- [Publisher Migration Guide](docs/PUBLISHER_MIGRATION_GUIDE.md) - Guide for migrating from old to new Publisher APIs
-- [Publisher API Quick Reference](docs/PUBLISHER_API_QUICK_REFERENCE.md) - Quick reference for Publisher APIs
-- [Tracing Guide](docs/TRACING_GUIDE.md) - Distributed tracing usage guide
-- [Graceful Shutdown Guide](docs/GRACEFUL_SHUTDOWN_GUIDE.md) - Best practices for graceful shutdown
-- [Context Best Practices](docs/CONTEXT_BEST_PRACTICES.md) - Context usage patterns
+### API Documentation
+- See [GoDoc](https://pkg.go.dev/github.com/wenpiner/rabbitmq-go/v2) for complete API documentation
 
 ### Release Information
 - [CHANGELOG](CHANGELOG.md) - Complete changelog and version history

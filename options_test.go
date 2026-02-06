@@ -151,18 +151,17 @@ func TestDefaultConsumerOptions(t *testing.T) {
 }
 
 func TestWithConsumerConfig(t *testing.T) {
-	cfg := conf.ConsumerConf{
-		Name:     "test-consumer",
-		AutoAck:  true,
-		Queue:    conf.QueueConf{Name: "test-queue"},
-		Exchange: conf.ExchangeConf{ExchangeName: "test-exchange"},
-	}
-
 	opts := DefaultConsumerOptions()
-	WithConsumerConfig(cfg)(opts)
 
-	if opts.Config.Name != "test-consumer" {
-		t.Errorf("Config.Name = %s, want test-consumer", opts.Config.Name)
+	WithQueue(conf.QueueConf{Name: "test-queue"})(opts)
+	WithExchange(conf.ExchangeConf{ExchangeName: "test-exchange"})(opts)
+	WithAutoAck(true)(opts)
+
+	if opts.Queue.Name != "test-queue" {
+		t.Errorf("Queue.Name = %s, want test-queue", opts.Queue.Name)
+	}
+	if opts.Exchange.ExchangeName != "test-exchange" {
+		t.Errorf("Exchange.ExchangeName = %s, want test-exchange", opts.Exchange.ExchangeName)
 	}
 	if !opts.Config.AutoAck {
 		t.Error("Config.AutoAck 应为 true")

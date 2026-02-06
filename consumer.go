@@ -113,17 +113,16 @@ func (c *Consumer) Start(ctx context.Context) error {
 	c.channel = channel
 
 	// 绑定队列（如果配置了交换机）
-	cfg := c.opts.Config
-	if cfg.Exchange.ExchangeName != "" && cfg.Queue.Name != "" {
-		if err := c.client.Bind(cfg.Exchange, cfg.Queue, cfg.RouteKey); err != nil {
+	if c.opts.Exchange.ExchangeName != "" && c.opts.Queue.Name != "" {
+		if err := c.client.Bind(c.opts.Exchange, c.opts.Queue, c.opts.RouteKey); err != nil {
 			c.setState(ConsumerStopped)
 			return fmt.Errorf("绑定队列失败: %w", err)
 		}
 	}
 
 	// 设置 QoS
-	if cfg.Qos.Enable {
-		if err := channel.Qos(cfg.Qos.PrefetchCount, cfg.Qos.PrefetchSize, cfg.Qos.Global); err != nil {
+	if c.opts.Qos.Enable {
+		if err := channel.Qos(c.opts.Qos.PrefetchCount, c.opts.Qos.PrefetchSize, c.opts.Qos.Global); err != nil {
 			c.setState(ConsumerStopped)
 			return fmt.Errorf("设置 QoS 失败: %w", err)
 		}
@@ -131,9 +130,9 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 	// 注册消费者
 	messages, err := channel.Consume(
-		cfg.Queue.Name, c.name,
-		cfg.AutoAck, cfg.Exclusive,
-		cfg.NoLocal, cfg.NoWait, nil)
+		c.opts.Queue.Name, c.name,
+		c.opts.Config.AutoAck, c.opts.Config.Exclusive,
+		c.opts.Config.NoLocal, c.opts.Config.NoWait, nil)
 	if err != nil {
 		c.setState(ConsumerStopped)
 		return fmt.Errorf("注册消费者失败: %w", err)
@@ -147,7 +146,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 	c.client.opts.Logger.Info("消费者已启动",
 		logger.String("name", c.name),
-		logger.String("queue", cfg.Queue.Name))
+		logger.String("queue", c.opts.Queue.Name))
 
 	return nil
 }
@@ -273,17 +272,12 @@ func (c *Consumer) handleError(ctx context.Context, msg *Message, err error) {
 
 // getRetryStrategy 获取重试策略
 func (c *Consumer) getRetryStrategy() conf.RetryStrategy {
-	if c.opts.RetryStrategy != nil {
-		return c.opts.RetryStrategy
-	}
-
-	// 从配置创建
-	return conf.CreateRetryStrategy(c.opts.Config.Retry)
+	return c.opts.RetryStrategy
 }
 
 // sendToDelayQueue 发送到延迟队列
 func (c *Consumer) sendToDelayQueue(ctx context.Context, msg *Message, delay time.Duration) error {
-	delayQueueName := fmt.Sprintf("%s_delay_%d", c.opts.Config.Queue.Name, delay.Milliseconds())
+	delayQueueName := fmt.Sprintf("%s_delay_%d", c.opts.Queue.Name, delay.Milliseconds())
 
 	channel, err := c.client.getChannel()
 	if err != nil {
@@ -295,8 +289,8 @@ func (c *Consumer) sendToDelayQueue(ctx context.Context, msg *Message, delay tim
 	_, err = channel.QueueDeclare(
 		delayQueueName, true, false, false, false,
 		amqp.Table{
-			"x-dead-letter-exchange":    c.opts.Config.Exchange.ExchangeName,
-			"x-dead-letter-routing-key": c.opts.Config.RouteKey,
+			"x-dead-letter-exchange":    c.opts.Exchange.ExchangeName,
+			"x-dead-letter-routing-key": c.opts.RouteKey,
 			"x-message-ttl":             delay.Milliseconds(),
 		})
 	if err != nil {

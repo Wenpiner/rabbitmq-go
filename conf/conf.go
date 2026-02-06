@@ -79,32 +79,19 @@ func NewQueueAutoDelete(queue string) QueueConf {
 	}
 }
 
+// ConsumerConf contains RabbitMQ native consumer configuration
+// For runtime configuration (timeout, retry, concurrency), use ConsumerOptions instead
 type ConsumerConf struct {
-	Exchange ExchangeConf
-	Queue    QueueConf
-	RouteKey string
-	Name     string
-	AutoAck  bool `json:",default=true"`
+	// Consumer tag (name)
+	Name string
+	// AutoAck enables automatic message acknowledgment
+	AutoAck bool `json:",default=true"`
 	// Set to true, which means that messages sent by producers in the same connection
 	// cannot be delivered to consumers in this connection.
 	NoLocal bool `json:",default=false"`
 	// Whether to block processing
 	NoWait    bool `json:",default=false"`
 	Exclusive bool `json:",default=false"`
-	// QoS configuration for the consumer
-	Qos QosConf `json:",optional"`
-	// Retry configuration for the consumer
-	Retry RetryConf `json:",optional"`
-	// HandlerTimeout is the message processing timeout duration, default is 30 seconds
-	HandlerTimeout time.Duration `json:",optional"`
-}
-
-// GetHandlerTimeout returns the handler timeout duration, returns default value if not set
-func (c *ConsumerConf) GetHandlerTimeout() time.Duration {
-	if c.HandlerTimeout <= 0 {
-		return 30 * time.Second // Default 30 seconds
-	}
-	return c.HandlerTimeout
 }
 
 // QosConf contains QoS (Quality of Service) settings for consumers
